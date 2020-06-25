@@ -1,0 +1,124 @@
+/* Milligram CSS Overrides */
+.button,
+button,
+input[type='button'],
+input[type='reset'],
+input[type='submit'] {
+  background-color: #a22e70;
+  border: 0.1rem solid #a22e70;
+}
+
+hr {
+  margin: 1.5rem 0;
+  border-top: 0.1rem solid #707070;
+}
+
+label{
+  display: inline;
+}
+
+.container{
+  padding-top: 3rem;
+  padding-bottom: 3rem;
+}
+
+.logo{
+  vertical-align: bottom;
+  height: 6rem;
+}
+
+.page-header {
+  padding-left: 1rem;
+}
+
+.grid-header {
+  font-size: 1.8rem;
+  line-height: 1.5;
+  font-weight: bold;
+  text-align: center;
+  width: 100%;
+  display: inline-block;
+}
+
+.grid-cell {
+  text-align: center;
+  width: 100%;
+  display: inline-block;
+}
+
+.publication-name{
+  font-weight: bold;
+}
+
+.spinner {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  -moz-transform: translateX(-50%) translateY(-50%);
+  -webkit-transform: translateX(-50%) translateY(-50%);
+  transform: translateX(-50%) translateY(-50%);
+}
+
+.radio-label,
+.checkbox-label{
+  margin-right: 3em;
+  margin-left: 0.3em;
+}
+
+input.user-attribute-input,
+input.user-endpoint-input,
+select.user-attribute-input{
+  width: 90%;
+}
+span.checkbox-container,
+span.radio-container{
+  width: 90%;
+  display: inline-block;
+}
+
+.tooltip{
+  margin-left: 0.5rem;
+}
+
+.mobile-channel-label{
+  display:none;
+}
+
+.mobile-publication-hr{
+  display: none;
+  margin: 1.0rem 0;
+  border-top: 0.1rem solid #a7a6a6;
+}
+
+/* Correcting subscription checkboxes so they look better on mobile */
+@media (max-width: 40.0rem) {
+
+  .grid-header{
+    display:none;
+  }
+  .mobile-channel-label{
+    display:inline-block;
+  }
+
+  .mobile-publication-hr{
+    display:block;
+  }
+
+  .publication-name{
+    font-weight: bold;
+  }
+
+  .grid-cell {
+    text-align: left;
+    width: 100%;
+    display: block;
+  }
+
+  .publication-description{
+    margin-bottom: .5rem;
+  }
+
+  .mobile-channel-label{
+    margin-left: .5rem;
+  }
+}
