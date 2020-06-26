@@ -21,7 +21,9 @@
       <div class="row">
         <div class="column">
           <img class="logo" id="logo" alt="logo" src="{{ logoURL }}" />
-          <span class="page-header" id="page-header">{{{text.page-header}}}</span>
+          {{#if text.page-header }}
+            <span class="page-header" id="page-header">{{{text.page-header}}}</span>
+          {{/if}}
         </div>
       </div>
       <hr>
@@ -132,7 +134,7 @@
       <div class="row">
         <div class="column">
           <span class="grid-cell">
-            <input class="button-primary" id="submit" type="submit" value="Submit">
+            <button class="button-primary" id="submit" type="submit" value="Submit">Submit</button>
           </span>
         </div>
       </div>

@@ -3,7 +3,7 @@ const METADATA_TABLE = process.env.METADATA_TABLE
 const AWS = require('aws-sdk');
 
 const dynamo = new AWS.DynamoDB.DocumentClient();
-const pinpoint = new AWS.Pinpoint({region: process.env.region});
+const pinpoint = new AWS.Pinpoint({region: process.env.REGION});
 
 /**
  * Helper Methods
@@ -30,14 +30,14 @@ function getMetadata(projectID) {
     });
 }
 
-function getEndpoint(projectID, endpointID) {
+function getUser(projectID, userID) {
     return new Promise((resolve, reject) => {
 
         var params = {
             ApplicationId: projectID,
-            EndpointId: endpointID
+            UserId: userID
         };
-        pinpoint.getEndpoint(params, function(err, data) {
+        pinpoint.getUserEndpoints(params, function(err, data) {
             if (err) {
                 console.log(err, err.stack); 
             } else {
@@ -47,10 +47,28 @@ function getEndpoint(projectID, endpointID) {
     });
 }
 
+function upsertEndpoint(projectID, endpointID, endpoint) {
+  return new Promise((resolve, reject) => {
+
+      var params = {
+        ApplicationId: projectID,
+        EndpointId: endpointID,
+        EndpointRequest: endpoint
+      };
+      pinpoint.updateEndpoint(params, function(err, data) {
+          if (err) {
+              console.log(err, err.stack); 
+          } else {
+              resolve(data);
+          }
+      });
+  });
+}
+
 /**
  * TODO: Description
  */
-exports.handler = async (event, context, callback) => {
+exports.handler =  (event, context, callback) => {
     console.log('Received event:', JSON.stringify(event, null, 2));
 
     const done = (err, res) => callback(null, {
@@ -67,11 +85,11 @@ exports.handler = async (event, context, callback) => {
         switch (event.httpMethod) {
             case 'GET':
                 if (event.pathParameters && event.pathParameters.projectID) {
-                    if(event.pathParameters.endpointID){
+                    if(event.pathParameters.userID){
                         //requesting an enpoint
-                        getEndpoint(event.pathParameters.projectID, event.pathParameters.endpointID)
-                        .then(function(endpoint) {
-                            done(null, endpoint);
+                        getUser(event.pathParameters.projectID, event.pathParameters.userID)
+                        .then(function(user) {
+                            done(null, user);
                         }).catch(function(e) {
                             console.log(e);
                             done(e);
@@ -91,7 +109,28 @@ exports.handler = async (event, context, callback) => {
                 }
                 break;
             case 'PUT':
-                done(new Error(`Unsupported method "${event.httpMethod}"`));
+                if (event.pathParameters && event.pathParameters.endpointID){
+                  var endpoint = JSON.parse(event.body);
+                  
+                  //Remove unexpected parameters
+                  delete endpoint.ApplicationId;
+                  delete endpoint.CohortId;
+                  delete endpoint.CreationDate;
+                  delete endpoint.Id;
+                  
+                  console.log(endpoint);
+                  
+                  //Sanitize inputs
+                  //TODO:
+                    
+                  upsertEndpoint(event.pathParameters.projectID, decodeURIComponent(event.pathParameters.endpointID),endpoint )
+                  .then(function(endpoint) {
+                      done(null, endpoint);
+                  }).catch(function(e) {
+                      console.log(e);
+                      done(e);
+                  });
+                }
                 break;
             default:
                 done(new Error(`Unsupported method "${event.httpMethod}"`));
@@ -99,5 +138,5 @@ exports.handler = async (event, context, callback) => {
     } catch (err) {
         console.log(err);
         done({ "status": "error", "message": "Unhandled Error." });
-    };
+    }
 };

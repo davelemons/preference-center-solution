@@ -2,21 +2,25 @@
 const apiKey = 'TkpUxABWt5aVSeh5k5Fac6EBR8ytwoxS3raEvHME'
 const baseURL = 'https://d72sxacxcl.execute-api.us-east-1.amazonaws.com/prod/preferencecenter/'
 
+//TODO: get from query string
+const projectID = '1aa20d5ade5c4699a5df45ddad370a10'
+const userID = 'davelem_sms'
+
 var metadata = {};
-var endpoint = {};
+var endpoints = [];
 
 var mockMetadata = {
   "projectID": "1aa20d5ade5c4699a5df45ddad370a10",
   "description": "Preference center for Spyglass & Field",
   "brandName": "Spyglass & Field",
-  "logoURL": "img/badge.png",
+  "logoURL": "img/badge.jpg",
   "availableChannels": [
     {
       "id": "EMAIL",
       "displayName": "Email",
       "inputLabel": "Email Address",
       "inputType": "email",
-      "inputPlaceholder": "mary@test.com",
+      "inputPlaceholder": "jane@example.com",
       "required": "true",
       "description": "This is a tooltip for Email!"
     },
@@ -25,26 +29,16 @@ var mockMetadata = {
       "displayName": "SMS",
       "inputLabel": "Mobile Phone Number",
       "inputType": "tel",
-      "inputPlaceholder": "(555) 123-4567",
+      "inputPlaceholder": "(206) 555-0199",
       "required": "true",
       "description": "This is a tooltip for SMS!"
     }
   ],
   "text":{
-    "page-header": "<img class='logo' alt='Spyglass & Field' src='img/logo.png' />",
+    "page-header": "",
     "page-title": "Communication Preferences",
     "page-description": "Please indicate which newsletters and special offers you would like to receive below"
   },
-  "endpoints":[
-    {
-      "Address":"dave@davelemons.com",
-      "ChannelType":"EMAIL"
-    },
-    {
-      "Address":"+13173739253",
-      "ChannelType":"SMS"
-    }
-  ],
   "unsubscribe":{
     "enabled":true,
     "surveyEnabled":true,
@@ -63,7 +57,7 @@ var mockMetadata = {
         "id":"firstName",
         "inputLabel": "First Name",
         "inputType": "text",
-        "inputPlaceholder": "Mary",
+        "inputPlaceholder": "Jane",
         "required": true,
         "description": "Please enter your First Name"
       },
@@ -71,7 +65,7 @@ var mockMetadata = {
         "id":"lastName",
         "inputLabel": "Last Name",
         "inputType": "text",
-        "inputPlaceholder": "Smith",
+        "inputPlaceholder": "Doe",
         "required": true,
         "description": "Please enter your Last Name"
       },
@@ -95,11 +89,11 @@ var mockMetadata = {
         ]
       },
       {
-        "id":"pizzaTopping",
-        "inputLabel": "Favorite Pizza Topping",
+        "id":"shoppingPreference",
+        "inputLabel": "Where do you Shop?",
         "inputType": "select",
         "required": false,
-        "description": "What do you like on your Pizza?",
+        "description": "",
         "options": [
           {
             "value": "",
@@ -107,47 +101,57 @@ var mockMetadata = {
             "selected": true,
           },
           {
-            "value": "sausage",
-            "label": "Sausage",
+            "value": "ao",
+            "label": "Always online",
             "selected": false,
           },
           {
-            "value": "Pepperoni",
-            "label": "Pepperoni",
+            "value": "airs",
+            "label": "Always in regular shops",
             "selected": false,
           },
           {
-            "value": "Anchovies",
-            "label": "Anchovies",
+            "value": "aoirsap",
+            "label": "As often in regular shops as possible",
+            "selected": false,
+          },
+          {
+            "value": "uooirs",
+            "label": "Usually online, occasionally in regular shops",
+            "selected": false,
+          },
+          {
+            "value": "uirsoo",
+            "label": "Usually in regular shops, occasionally online",
             "selected": false,
           }
         ]
       },
       {
-        "id":"cuisineType",
-        "inputLabel": "Favorite Cuisine Types",
+        "id":"favoriteActivity",
+        "inputLabel": "Favorite Activities",
         "inputType": "checkbox",
         "required": false,
-        "description": "What types of food do you like to eat",
+        "description": "What is your favorite outdoor activity?",
         "options": [
           {
-            "value": "Spanish",
-            "label": "Spanish",
+            "value": "Hiking",
+            "label": "Hiking",
             "selected": false,
           },
           {
-            "value": "American",
-            "label": "American",
+            "value": "Running",
+            "label": "Running",
             "selected": false,
           },
           {
-            "value": "Sushi",
-            "label": "Sushi",
+            "value": "Walking",
+            "label": "Walking",
             "selected": false,
           },
           {
-            "value": "Mexican",
-            "label": "Mexican",
+            "value": "Cycling",
+            "label": "Cycling",
             "selected": false,
           }
         ]
@@ -159,30 +163,30 @@ var mockMetadata = {
       "description": "Check out our way cool newsletters!",
       "publications": [
         {
-          "id":"plm",
-          "name": "Pizza Lovers Monthly",
-          "description": "<strong>Do you love pizza?</strong>  If so, you need to subscribe to this great newsletter with all things Pizza.",
+          "id":"runnersMonthly",
+          "name": "Runners Monthly",
+          "description": "<strong>Do you love running?</strong>  If so, you need to subscribe to this great newsletter with all things Running",
         },
         {
-          "id":"eos",
-          "name": "The Earl of Sandwich",
-          "description": "Celebrate all things related to the amazing sandwich",
+          "id":"theShoeCollector",
+          "name": "The Shoe Collector",
+          "description": "Celebrate all things related to the collecting and storing shoes",
         }
       ]
     },
     {
-      "name": "Specials & Seasonal Updates",
-      "description": "Sign up for the best deals and upcoming new seasonal menus",
+      "name": "Specials & New Arrivals",
+      "description": "Sign up for the best deals and upcoming new seasonal seasonal discounts",
       "publications": [
         {
-          "id":"ws",
+          "id":"weeklySpecials",
           "name": "Weekly Specials",
           "description": "Be one of the first to know about our weekly specials and special discounts",
         },
         {
-          "id":"sm",
-          "name": "Seasonal Updates",
-          "description": "Our menu changes according to whats available this season.  Sign up to stay informed of all the new dishes",
+          "id":"newArrivals",
+          "name": "New Arrivals",
+          "description": "Our inventory changes according to whats available each season.  Sign up to stay informed of all the new arrivals",
         }
       ]
     }
@@ -193,17 +197,17 @@ $(document).ready(function() {
 
   registerHelpers();
 
-  getMetadata('1aa20d5ade5c4699a5df45ddad370a10') //TODO: pull from query string
+  getMetadata(projectID) //TODO: pull from query string
   .then(function(returnedMetadata) {
     metadata = returnedMetadata;
     console.log("Metadata Loaded");
-    return getEndpoint('1aa20d5ade5c4699a5df45ddad370a10','a8vcg700nsarn0wj4zfkql8hd68')
+    return getEndpoints(projectID,userID)
   })
-  .then(function(returnedEndpoint) {
-    endpoint = returnedEndpoint;
-    console.log("Endpoint Loaded");
+  .then(function(returnedEndpoints) {
+    endpoints = returnedEndpoints;
+    console.log("User Loaded");
     loadMetadata();
-    loadEndpoint();
+    loadUser();
     hideLoader();
     showForm();
   })
@@ -211,6 +215,10 @@ $(document).ready(function() {
     console.error('Error:', e);
     hideLoader();
     showError();
+  });
+
+  $(document).on('click', '#submit', function(){
+    upsertEndpoints();
   });
 
 }); 
@@ -229,7 +237,8 @@ function getMetadata(projectID) {
       })
       .done(function(json) {
         if (json) {
-          resolve(json);
+          resolve(mockMetadata); //TODO: Just mocking local data for now
+          //resolve(json);
         } else {
           reject();
         }
@@ -249,11 +258,11 @@ function loadMetadata(){
   $('#content').html(template(metadata));
 }
 
-function getEndpoint(projectID, endpointID){
+function getEndpoints(projectID, userID){
   return new Promise(function(resolve, reject) {
-    if (projectID && endpointID) {
+    if (projectID && userID) {
       // Update mode
-      var requestUrl = baseURL + projectID + '/endpoints/' + endpointID;
+      var requestUrl = baseURL + projectID + '/users/' + userID;
       $.ajax({
         url: requestUrl,
         type: 'GET',
@@ -263,7 +272,7 @@ function getEndpoint(projectID, endpointID){
       })
       .done(function(json) {
         if (json) {
-          resolve(json.EndpointResponse);
+          resolve(json.EndpointsResponse.Item);
         } else {
           reject();
         }
@@ -277,30 +286,32 @@ function getEndpoint(projectID, endpointID){
   })
 }
 
-function loadEndpoint(){
-  console.log(endpoint)
+function loadUser(){
 
   //Endpoint Addresses
-  $('.user-endpoint-input').each(function(address, index){
-    if ($(this).data('attribute') === endpoint.ChannelType){
-      $(this).val(endpoint.Address);
-    }
+  endpoints.forEach(function(endpoint, index) {
+    $('.user-endpoint-input').each(function(address, index){
+      if ($(this).data('attribute') === endpoint.ChannelType){
+        $(this).val(endpoint.Address);
+      }
+    });
+
+    //TODO: Mocking Data for now
+    // endpoint.User.UserAttributes = {
+    //   'firstName':['Paulo'],
+    //   'lastName':['Santos'],
+    //   'preferredChannel':['SMS'],
+    //   'shoppingPreference':['ao'],
+    //   'favoriteActivity':['Running','Cycling'],
+    //   'runnersMonthly': ['EMAIL','SMS'],
+    //   'weeklySpecials': ['EMAIL'],
+    //   'newArrivals': ['SMS']
+    // }
   });
 
-  //TODO: Mocking Data for now
-  endpoint.User.UserAttributes = {
-    'firstName':['Dave'],
-    'lastName':['Lemons'],
-    'preferredChannel':['SMS'],
-    'pizzaTopping':['sausage'],
-    'cuisineType':['American','Mexican'],
-    'plm': ['EMAIL','SMS'],
-    'ws': ['EMAIL'],
-    'sm': ['SMS']
-  }
-
   //User Attributes
-  var userAttributes = endpoint.User.UserAttributes;
+  //TODO: need to figure out which endpoint we grab data off of...using first one for now
+  var userAttributes = endpoints[0].User.UserAttributes;
   
   //Textboxes and Dropdowns
   $('.user-attribute-input').each(function(attribute, index){
@@ -346,6 +357,143 @@ function loadEndpoint(){
       });
     });
   });
+}
+
+function upsertEndpoints(){
+  console.log("upsertEndpoints!");
+
+  //TODO Validate Form
+
+  readFormData();
+
+  endpoints.reduce( (previousPromise, nextEndpoint) => {
+    return previousPromise.then(() => {
+      return upsertEndpoint(nextEndpoint);
+    });
+  }, Promise.resolve());
+
+}
+
+function upsertEndpoint(endpoint){
+  return new Promise(function(resolve, reject) {
+      // Update mode
+      var requestUrl = baseURL + projectID + '/endpoints/' + encodeURIComponent(endpoint.Id);
+      $.ajax({
+        url: requestUrl,
+        type: 'PUT',
+        contentType: 'application/json',
+        data: JSON.stringify(endpoint), 
+        headers: {
+          'x-api-key': apiKey
+        }
+      })
+      .done(function(json) {
+        if (json) {
+          console.log(json)
+          resolve();
+        } else {
+          reject();
+        }
+      })
+      .fail(function(error) {
+        console.error(error)
+        reject(error);
+      });
+  })
+}
+
+function readFormData(){
+
+  //Endpoint Addresses
+  $('.user-endpoint-input').each(function(address, index){
+    endpoints.forEach(function(endpoint, index) {
+      $('.user-endpoint-input').each(function(address, index){
+        if ($(this).data('attribute') === endpoint.ChannelType){
+          endpoint.Address = $(this).val();
+        }
+      });
+    });
+  });
+
+  //TODO: need to figure out which endpoint we grab data off of...using first one for now
+  var userAttributes = endpoints[0].User.UserAttributes;
+  
+  var tmpData = {}
+
+  //Textboxes and Dropdowns
+  $('.user-attribute-input').each(function(attribute, index){
+    for (const property in userAttributes) {
+      if ($(this).data('attribute') === property){
+        if(!tmpData[property]){
+          tmpData[property] = [$(this).val()]
+        } else {
+          tmpData[property].push($(this).val());
+        }
+      }
+    }
+  });
+
+  //Radio Buttons
+  $('.user-attribute-radio').each(function(attribute, index){
+    for (const property in userAttributes) {
+      if ($(this).attr('name') === property){
+        if($(this).val() == userAttributes[property])
+          if($(this).prop('checked')){
+            if(!tmpData[property]){
+              tmpData[property] = [$(this).val()]
+            } else {
+              tmpData[property].push($(this).val());
+            }
+          }
+      }
+    }
+  });
+
+  //Checkboxes
+  $('.user-attribute-checkbox').each(function(attribute, index){
+    for (const property in userAttributes) {
+      if ($(this).attr('name') === property){
+        if ($(this).prop('checked')){
+          if(!tmpData[property]){
+            tmpData[property] = [$(this).val()]
+          } else {
+            tmpData[property].push($(this).val());
+          }
+        }
+      }
+    }
+  });
+
+  //Publications
+  metadata.categories.forEach(function(category, index) {
+    category.publications.forEach(function(publication, index) {
+      $('.publication_' + publication.id).each(function(attribute, index){
+        for (const property in userAttributes) {
+          if ($(this).attr('name') === property){
+            if ($(this).prop('checked')){
+              if(!tmpData[property]){
+                tmpData[property] = [$(this).val()]
+              } else {
+                tmpData[property].push($(this).val());
+              }
+            }
+          }
+        }
+      });
+    });
+  });
+
+  //Copy Checkbox values back into userAttributes
+  for (const property in tmpData) {
+    userAttributes[property] = tmpData[property]
+  }
+
+  //Update endpoint Users Attributes  TODO: Do we update all, or only update appropriate one if endpoint id is passed
+  //TODO: do we want to make it configurable if user or endpoint attributes are updated?
+  endpoints.forEach(function(endpoint, index) {
+    endpoint.User.UserAttributes = userAttributes;
+  });
+
 }
 
 function showLoader() {
