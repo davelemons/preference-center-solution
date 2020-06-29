@@ -99,7 +99,7 @@
             <div class="column">
               <span class="grid-cell">
                 <label class="mobile-channel-label" for="publication_{{../id}}_{{this.id}}">{{this.displayName}}</label>
-                <input type="checkbox" id="publication_{{../id}}_{{this.id}}" class="publication_{{../id}}" name= "{{../id}}" value="{{this.id}}" />
+                <input type="checkbox" id="publication_{{../id}}_{{this.id}}" class="publication-checkbox publication_{{../id}}" name= "{{../id}}" value="{{this.id}}" />
               </span>
             </div>
           {{/each}}
@@ -132,8 +132,8 @@
 
       <div class="row">
         <div class="column">
-          <input type="checkbox" id="confirmField">
-          <label class="label-inline" for="confirmField">Please Remove me from All Publications</label>
+          <input type="checkbox" id="unsub-from-all">
+          <label class="label-inline" for="unsub-from-all">Please Remove me from All Publications</label>
         </div>
       </div>
 

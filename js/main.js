@@ -2,205 +2,19 @@
 const apiKey = 'TkpUxABWt5aVSeh5k5Fac6EBR8ytwoxS3raEvHME'
 const baseURL = 'https://d72sxacxcl.execute-api.us-east-1.amazonaws.com/prod/preferencecenter/'
 
-//TODO: get from query string
-const projectID = '1aa20d5ade5c4699a5df45ddad370a10'
-const userID = 'leadlem'
-
+const projectID = getParameterByName('pid') //'1aa20d5ade5c4699a5df45ddad370a10'
+const userID = getParameterByName('uid')//'cf2e45ba-6773-478a-8496-6c94231b215e'
 var metadata = {};
 var endpoints = [];
 
-var mockMetadata = {
-  "projectID": "1aa20d5ade5c4699a5df45ddad370a10",
-  "description": "Preference center for Spyglass & Field",
-  "brandName": "Spyglass & Field",
-  "logoURL": "img/badge.jpg",
-  "availableChannels": [
-    {
-      "id": "EMAIL",
-      "displayName": "Email",
-      "inputLabel": "Email Address",
-      "inputType": "email",
-      "inputPlaceholder": "jane@example.com",
-      "required": true,
-      "description": "This is a tooltip for Email!"
-    },
-    {
-      "id": "SMS",
-      "displayName": "SMS",
-      "inputLabel": "Mobile Phone Number",
-      "inputType": "tel",
-      "inputPlaceholder": "(206) 555-0199",
-      "required": false,
-      "description": "This is a tooltip for SMS!"
-    }
-  ],
-  "text":{
-    "pageHeader": "",
-    "pageTitle": "Communication Preferences",
-    "pageDescription": "Please indicate which newsletters and special offers you would like to receive below",
-    "submitButtonText": "Submit",
-    "successText":"Thank you for submitting your information!",
-    "errorText":"We apologize, but there was an error saving your information."
-  },
-  "unsubscribe":{
-    "enabled":true,
-    "surveyEnabled":true,
-    "buttonText": "Please Remove me from all Publications",
-    "confirmationHTML": "<strong>You have been removed from all publications.</strong?<hr /> We're sorry to see you go.  We want to be better can you let us know why you are leaving us?",
-    "surveyQuestions":[
-      "I no longer want to receive these emails",
-      "I never signed up for this mailing list",
-      "The emails are inappropriate",
-      "The emails are spam and should be reported",
-      "Other (fill in reason below)"
-    ]
-  },
-  "attributes":[
-      {
-        "id":"firstName",
-        "inputLabel": "First Name",
-        "inputType": "text",
-        "inputPlaceholder": "Jane",
-        "required": true,
-        "description": "Please enter your First Name"
-      },
-      {
-        "id":"lastName",
-        "inputLabel": "Last Name",
-        "inputType": "text",
-        "inputPlaceholder": "Doe",
-        "required": true,
-        "description": "Please enter your Last Name"
-      },
-      {
-        "id":"preferredChannel",
-        "inputLabel": "Communication Preference",
-        "inputType": "radio",
-        "required": false,
-        "description": "How would you like for us to contact you?",
-        "options": [
-          {
-            "value": "EMAIL",
-            "label": "Email",
-            "selected": false
-          },
-          {
-            "value": "SMS",
-            "label": "SMS",
-            "selected": false
-          }
-        ]
-      },
-      {
-        "id":"shoppingPreference",
-        "inputLabel": "Where do you Shop?",
-        "inputType": "select",
-        "required": false,
-        "description": "",
-        "options": [
-          {
-            "value": "",
-            "label": "",
-            "selected": true
-          },
-          {
-            "value": "ao",
-            "label": "Always online",
-            "selected": false
-          },
-          {
-            "value": "airs",
-            "label": "Always in regular shops",
-            "selected": false
-          },
-          {
-            "value": "aoirsap",
-            "label": "As often in regular shops as possible",
-            "selected": false
-          },
-          {
-            "value": "uooirs",
-            "label": "Usually online, occasionally in regular shops",
-            "selected": false
-          },
-          {
-            "value": "uirsoo",
-            "label": "Usually in regular shops, occasionally online",
-            "selected": false
-          }
-        ]
-      },
-      {
-        "id":"favoriteActivity",
-        "inputLabel": "Favorite Activities",
-        "inputType": "checkbox",
-        "required": false,
-        "description": "What is your favorite outdoor activity?",
-        "options": [
-          {
-            "value": "Hiking",
-            "label": "Hiking",
-            "selected": false
-          },
-          {
-            "value": "Running",
-            "label": "Running",
-            "selected": false
-          },
-          {
-            "value": "Walking",
-            "label": "Walking",
-            "selected": false
-          },
-          {
-            "value": "Cycling",
-            "label": "Cycling",
-            "selected": false
-          }
-        ]
-      }
-  ],
-  "categories":[
-    {
-      "name": "Newsletters",
-      "description": "Check out our way cool newsletters!",
-      "publications": [
-        {
-          "id":"runnersMonthly",
-          "name": "Runners Monthly",
-          "description": "<strong>Do you love running?</strong>  If so, you need to subscribe to this great newsletter with all things Running"
-        },
-        {
-          "id":"theShoeCollector",
-          "name": "The Shoe Collector",
-          "description": "Celebrate all things related to the collecting and storing shoes"
-        }
-      ]
-    },
-    {
-      "name": "Specials & New Arrivals",
-      "description": "Sign up for the best deals and upcoming new seasonal seasonal discounts",
-      "publications": [
-        {
-          "id":"weeklySpecials",
-          "name": "Weekly Specials",
-          "description": "Be one of the first to know about our weekly specials and special discounts"
-        },
-        {
-          "id":"newArrivals",
-          "name": "New Arrivals",
-          "description": "Our inventory changes according to whats available each season.  Sign up to stay informed of all the new arrivals"
-        }
-      ]
-    }
-  ]
-}
+
 
 $(document).ready(function() { 
 
   registerHelpers();
+  registerEvents();
 
-  getMetadata(projectID) //TODO: pull from query string
+  getMetadata(projectID)
   .then(function(returnedMetadata) {
     metadata = returnedMetadata;
     console.log("Metadata Loaded");
@@ -220,12 +34,6 @@ $(document).ready(function() {
     showError("There was an error loading the preference center.");
   });
 
-  $(document).on("submit", "form", function(e){
-    e.preventDefault();
-    upsertEndpoints();
-    return  false;
-});
-
 }); 
 
 function getMetadata(projectID) {
@@ -242,8 +50,7 @@ function getMetadata(projectID) {
       })
       .done(function(json) {
         if (json) {
-          resolve(mockMetadata); //TODO: Just mocking local data for now
-          //resolve(json);
+          resolve(json); 
         } else {
           reject();
         }
@@ -363,7 +170,7 @@ function upsertEndpoints(){
 
   readFormData();
 
-  upsertUser() //TODO: pull from query string
+  upsertUser() 
   .then(function(returnedEndpoints) {
     endpoints = returnedEndpoints;
     loadUser();
@@ -377,15 +184,6 @@ function upsertEndpoints(){
   });
 
   return;
-
-  
-
-  endpoints.reduce( (previousPromise, nextEndpoint) => {
-    return previousPromise.then(() => {
-      return upsertEndpoint(nextEndpoint);
-    });
-  }, Promise.resolve());
-
 }
 
 function upsertUser(){
@@ -537,6 +335,32 @@ function showSuccess(msg) {
   setTimeout(function(){ 
     $('.success-notification').fadeOut();
   }, 4000);
+}
+
+function getParameterByName(name, url) {
+  if (!url) url = window.location.href;
+  name = name.replace(/[\[\]]/g, '\\$&');
+  var regex = new RegExp('[?&]' + name + '(=([^&#]*)|&|#|$)'),
+      results = regex.exec(url);
+  if (!results) return null;
+  if (!results[2]) return '';
+  return decodeURIComponent(results[2].replace(/\+/g, ' '));
+}
+
+function registerEvents(){
+  $(document).on("submit", "form", function(e){
+    e.preventDefault();
+    upsertEndpoints();
+    return  false;
+  });
+
+  $(document).on("click", "#unsub-from-all", function(e){
+    if($(this).prop('checked')){
+      $('.publication-checkbox').each(function(attribute, index){
+        $(this).prop('checked', false);
+      })
+    }
+  });
 }
 
 function registerHelpers(){

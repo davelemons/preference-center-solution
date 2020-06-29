@@ -61,19 +61,24 @@ function upsertEndpoints(projectID, endpoints) {
 
       if(!userID) userID = uuidv4(); //New user so generate a UUID
 
+      //Run these synchronously so we don't hammer the API  
       endpoints.reduce( (previousPromise, nextEndpoint) => {
         return previousPromise.then(() => {
-          return upsertEndpoint(projectID, nextEndpoint);
+          return upsertEndpoint(projectID, userID, nextEndpoint);
         });
-      }, Promise.resolve());
+      }, Promise.resolve())
+      .then(()=>{
+        resolve(userID);
+      });
 
-      resolve();
   });
 }
-function upsertEndpoint(projectID, endpoint) {
+function upsertEndpoint(projectID, userID, endpoint) {
   return new Promise((resolve, reject) => {
 
       var endpointID = endpoint.Id || uuidv4(); //New Endpoint, go generate a UUID
+
+      endpoint.User.UserId = userID;
 
       //Remove following attributes...they were part of Get, but the Update doesn't like them
       delete endpoint.ApplicationId;
@@ -83,12 +88,12 @@ function upsertEndpoint(projectID, endpoint) {
 
       //Sanitize all user specified values
       endpoint.Address = sanitizer.process(endpoint.Address);
-      endpoint.User.UserAttributes.forEach(attribute => {
-        attribute.forEach(value => {
-          value = sanitizer.process(value);
-        });
-      });
-
+      for (const property in endpoint.User.UserAttributes) {
+            endpoint.User.UserAttributes[property].forEach(value => {
+              value = sanitizer.process(value);
+            });
+      }
+     
       var params = {
         ApplicationId: projectID,
         EndpointId: endpointID,
@@ -157,8 +162,11 @@ exports.handler =  (event, context, callback) => {
                   var endpoints = JSON.parse(event.body);
                     
                   upsertEndpoints(event.pathParameters.projectID, endpoints)
-                  .then(function(endpoint) {
-                      done(null, endpoint);
+                  .then(function(userID) {
+                      return getUser(event.pathParameters.projectID, userID);
+                  })
+                  .then(function(user) {
+                      done(null, user);
                   }).catch(function(e) {
                       console.log(e);
                       done(e);
