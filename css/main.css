@@ -37,6 +37,41 @@ label{
   display: inline;
 }
 
+.error-notification {
+  display:none;
+  padding: 0 15px;
+  border-radius:4px;
+  font-weight:bold;
+  opacity: .97;
+  color: #721c24;
+  background-color: #f8d7da;
+  border-color: #f5c6cb;
+  position: fixed;
+  right: 10px;
+  top: 20px;
+  line-height:55px;
+}
+
+.success-notification {
+  display:none;
+  padding: 0 15px;
+  border-radius:4px;
+  font-weight:bold;
+  opacity: .97;
+  color: #155724;
+  background-color: #d4edda;
+  border-color: #c3e6cb;
+  position: fixed;
+  right: 10px;
+  top: 20px;
+  line-height:55px;
+}
+
+.required{
+  color: red;
+  font-weight: bold;
+}
+
 .container{
   padding-top: 3rem;
   padding-bottom: 3rem;

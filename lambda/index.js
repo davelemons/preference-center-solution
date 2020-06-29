@@ -1,9 +1,9 @@
 const METADATA_TABLE = process.env.METADATA_TABLE
 
 const AWS = require('aws-sdk');
-
 const dynamo = new AWS.DynamoDB.DocumentClient();
 const pinpoint = new AWS.Pinpoint({region: process.env.REGION});
+const { v4: uuidv4 } = require('uuid');
 
 /**
  * Helper Methods
@@ -41,7 +41,7 @@ function getUser(projectID, userID) {
             if (err) {
                 console.log(err, err.stack); 
             } else {
-                resolve(data);
+                resolve(data.EndpointsResponse.Item);
             }
         });
     });
@@ -95,14 +95,19 @@ exports.handler =  (event, context, callback) => {
                             done(e);
                         });
                     } else {
-                        //requesting preference center metadata
-                        getMetadata(event.pathParameters.projectID)
-                        .then(function(metadata) {
-                            done(null, metadata);
-                        }).catch(function(e) {
-                            console.log(e);
-                            done(e);
-                        });
+                        if (event.path.indexOf('/users/') > -1){
+                            //no user specified, so must be opt-in.  Return empty endpoints array
+                            done(null, []);
+                        } else {
+                            //requesting preference center metadata
+                            getMetadata(event.pathParameters.projectID)
+                            .then(function(metadata) {
+                                done(null, metadata);
+                            }).catch(function(e) {
+                                console.log(e);
+                                done(e);
+                            });
+                        }
                     }
                 } else {
                     done({ "status": "error", "message": "Missing Required Parameters." });

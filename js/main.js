@@ -4,7 +4,7 @@ const baseURL = 'https://d72sxacxcl.execute-api.us-east-1.amazonaws.com/prod/pre
 
 //TODO: get from query string
 const projectID = '1aa20d5ade5c4699a5df45ddad370a10'
-const userID = 'davelem_sms'
+const userID = 'leadlem'
 
 var metadata = {};
 var endpoints = [];
@@ -21,7 +21,7 @@ var mockMetadata = {
       "inputLabel": "Email Address",
       "inputType": "email",
       "inputPlaceholder": "jane@example.com",
-      "required": "true",
+      "required": true,
       "description": "This is a tooltip for Email!"
     },
     {
@@ -30,14 +30,17 @@ var mockMetadata = {
       "inputLabel": "Mobile Phone Number",
       "inputType": "tel",
       "inputPlaceholder": "(206) 555-0199",
-      "required": "true",
+      "required": false,
       "description": "This is a tooltip for SMS!"
     }
   ],
   "text":{
-    "page-header": "",
-    "page-title": "Communication Preferences",
-    "page-description": "Please indicate which newsletters and special offers you would like to receive below"
+    "pageHeader": "",
+    "pageTitle": "Communication Preferences",
+    "pageDescription": "Please indicate which newsletters and special offers you would like to receive below",
+    "submitButtonText": "Submit",
+    "successText":"Thank you for submitting your information!",
+    "errorText":"We apologize, but there was an error saving your information."
   },
   "unsubscribe":{
     "enabled":true,
@@ -79,12 +82,12 @@ var mockMetadata = {
           {
             "value": "EMAIL",
             "label": "Email",
-            "selected": false,
+            "selected": false
           },
           {
             "value": "SMS",
             "label": "SMS",
-            "selected": false,
+            "selected": false
           }
         ]
       },
@@ -98,32 +101,32 @@ var mockMetadata = {
           {
             "value": "",
             "label": "",
-            "selected": true,
+            "selected": true
           },
           {
             "value": "ao",
             "label": "Always online",
-            "selected": false,
+            "selected": false
           },
           {
             "value": "airs",
             "label": "Always in regular shops",
-            "selected": false,
+            "selected": false
           },
           {
             "value": "aoirsap",
             "label": "As often in regular shops as possible",
-            "selected": false,
+            "selected": false
           },
           {
             "value": "uooirs",
             "label": "Usually online, occasionally in regular shops",
-            "selected": false,
+            "selected": false
           },
           {
             "value": "uirsoo",
             "label": "Usually in regular shops, occasionally online",
-            "selected": false,
+            "selected": false
           }
         ]
       },
@@ -137,22 +140,22 @@ var mockMetadata = {
           {
             "value": "Hiking",
             "label": "Hiking",
-            "selected": false,
+            "selected": false
           },
           {
             "value": "Running",
             "label": "Running",
-            "selected": false,
+            "selected": false
           },
           {
             "value": "Walking",
             "label": "Walking",
-            "selected": false,
+            "selected": false
           },
           {
             "value": "Cycling",
             "label": "Cycling",
-            "selected": false,
+            "selected": false
           }
         ]
       }
@@ -165,12 +168,12 @@ var mockMetadata = {
         {
           "id":"runnersMonthly",
           "name": "Runners Monthly",
-          "description": "<strong>Do you love running?</strong>  If so, you need to subscribe to this great newsletter with all things Running",
+          "description": "<strong>Do you love running?</strong>  If so, you need to subscribe to this great newsletter with all things Running"
         },
         {
           "id":"theShoeCollector",
           "name": "The Shoe Collector",
-          "description": "Celebrate all things related to the collecting and storing shoes",
+          "description": "Celebrate all things related to the collecting and storing shoes"
         }
       ]
     },
@@ -181,12 +184,12 @@ var mockMetadata = {
         {
           "id":"weeklySpecials",
           "name": "Weekly Specials",
-          "description": "Be one of the first to know about our weekly specials and special discounts",
+          "description": "Be one of the first to know about our weekly specials and special discounts"
         },
         {
           "id":"newArrivals",
           "name": "New Arrivals",
-          "description": "Our inventory changes according to whats available each season.  Sign up to stay informed of all the new arrivals",
+          "description": "Our inventory changes according to whats available each season.  Sign up to stay informed of all the new arrivals"
         }
       ]
     }
@@ -205,7 +208,7 @@ $(document).ready(function() {
   })
   .then(function(returnedEndpoints) {
     endpoints = returnedEndpoints;
-    console.log("User Loaded");
+    console.log("User Loaded", returnedEndpoints);
     loadMetadata();
     loadUser();
     hideLoader();
@@ -214,12 +217,14 @@ $(document).ready(function() {
   .catch(function(e) {
     console.error('Error:', e);
     hideLoader();
-    showError();
+    showError("There was an error loading the preference center.");
   });
 
-  $(document).on('click', '#submit', function(){
+  $(document).on("submit", "form", function(e){
+    e.preventDefault();
     upsertEndpoints();
-  });
+    return  false;
+});
 
 }); 
 
@@ -260,7 +265,7 @@ function loadMetadata(){
 
 function getEndpoints(projectID, userID){
   return new Promise(function(resolve, reject) {
-    if (projectID && userID) {
+    if (projectID) {
       // Update mode
       var requestUrl = baseURL + projectID + '/users/' + userID;
       $.ajax({
@@ -272,7 +277,7 @@ function getEndpoints(projectID, userID){
       })
       .done(function(json) {
         if (json) {
-          resolve(json.EndpointsResponse.Item);
+          resolve(json);
         } else {
           reject();
         }
@@ -293,78 +298,75 @@ function loadUser(){
     $('.user-endpoint-input').each(function(address, index){
       if ($(this).data('attribute') === endpoint.ChannelType){
         $(this).val(endpoint.Address);
+        $(this).data('endpointid', endpoint.Id);
       }
     });
-
-    //TODO: Mocking Data for now
-    // endpoint.User.UserAttributes = {
-    //   'firstName':['Paulo'],
-    //   'lastName':['Santos'],
-    //   'preferredChannel':['SMS'],
-    //   'shoppingPreference':['ao'],
-    //   'favoriteActivity':['Running','Cycling'],
-    //   'runnersMonthly': ['EMAIL','SMS'],
-    //   'weeklySpecials': ['EMAIL'],
-    //   'newArrivals': ['SMS']
-    // }
   });
 
   //User Attributes
   //TODO: need to figure out which endpoint we grab data off of...using first one for now
-  var userAttributes = endpoints[0].User.UserAttributes;
-  
-  //Textboxes and Dropdowns
-  $('.user-attribute-input').each(function(attribute, index){
-    for (const property in userAttributes) {
-      if ($(this).data('attribute') === property){
-        $(this).val(userAttributes[property]);
-      }
-    }
-  });
+  if (endpoints.length){
 
-  //Radio Buttons
-  $('.user-attribute-radio').each(function(attribute, index){
-    for (const property in userAttributes) {
-      if ($(this).attr('name') === property){
-        if($(this).val() == userAttributes[property])
-        $(this).prop('checked', true)
+    var userAttributes = endpoints[0].User.UserAttributes;
+    
+    //Textboxes and Dropdowns
+    $('.user-attribute-input').each(function(attribute, index){
+      for (const property in userAttributes) {
+        if ($(this).data('attribute') === property){
+          $(this).val(userAttributes[property]);
+        }
       }
-    }
-  });
+    });
 
-  //Checkboxes
-  $('.user-attribute-checkbox').each(function(attribute, index){
-    for (const property in userAttributes) {
-      if ($(this).attr('name') === property){
-        if(userAttributes[property].indexOf($(this).val()) > -1){
+    //Radio Buttons
+    $('.user-attribute-radio').each(function(attribute, index){
+      for (const property in userAttributes) {
+        if ($(this).attr('name') === property){
+          if($(this).val() == userAttributes[property])
           $(this).prop('checked', true)
         }
       }
-    }
-  });
+    });
 
-  //Publications
-  metadata.categories.forEach(function(category, index) {
-    category.publications.forEach(function(publication, index) {
-      $('.publication_' + publication.id).each(function(attribute, index){
-        for (const property in userAttributes) {
-          if ($(this).attr('name') === property){
-            if(userAttributes[property].indexOf($(this).val()) > -1){
-              $(this).prop('checked', true)
-            }
+    //Checkboxes
+    $('.user-attribute-checkbox').each(function(attribute, index){
+      for (const property in userAttributes) {
+        if ($(this).attr('name') === property){
+          if(userAttributes[property].indexOf($(this).val()) > -1){
+            $(this).prop('checked', true)
           }
         }
+      }
+    });
+
+    //Publications
+    metadata.categories.forEach(function(category, index) {
+      category.publications.forEach(function(publication, index) {
+        $('.publication_' + publication.id).each(function(attribute, index){
+          for (const property in userAttributes) {
+            if ($(this).attr('name') === property){
+              if(userAttributes[property].indexOf($(this).val()) > -1){
+                $(this).prop('checked', true)
+              }
+            }
+          }
+        });
       });
     });
-  });
+  }
 }
 
 function upsertEndpoints(){
   console.log("upsertEndpoints!");
 
   //TODO Validate Form
+  showSuccess(metadata.text.successText)
 
   readFormData();
+
+  return;
+
+  
 
   endpoints.reduce( (previousPromise, nextEndpoint) => {
     return previousPromise.then(() => {
@@ -406,59 +408,65 @@ function readFormData(){
 
   //Endpoint Addresses
   $('.user-endpoint-input').each(function(address, index){
-    endpoints.forEach(function(endpoint, index) {
-      $('.user-endpoint-input').each(function(address, index){
-        if ($(this).data('attribute') === endpoint.ChannelType){
+    var endpointID = '';
+    if( $(this).data('endpointid') ){
+      //Existing Endpoint, so update
+      endpoints.forEach(function(endpoint, index) {
+        if (endpointID === endpoint.Id){
           endpoint.Address = $(this).val();
         }
       });
-    });
+    } else if ($(this).val()) {
+      //New Endpoint, so create new endpoint
+      endpoints.push({
+        'Address': $(this).val(),
+        'ChannelType': $(this).data('attribute'),
+        'User': { 
+          'UserAttributes':{}
+        }
+      })
+    }
+
   });
 
-  //TODO: need to figure out which endpoint we grab data off of...using first one for now
-  var userAttributes = endpoints[0].User.UserAttributes;
-  
-  var tmpData = {}
+  //Build temporary attributes object
+  var tmpAttributes = {};
+  metadata.attributes.forEach(function(attribute, index) {
+    tmpAttributes[attribute.id] = [];
+  })
+
+  metadata.categories.forEach(function(category, index) {
+    category.publications.forEach(function(publication, index) {
+      tmpAttributes[publication.id] = [];
+    })
+  })
 
   //Textboxes and Dropdowns
   $('.user-attribute-input').each(function(attribute, index){
-    for (const property in userAttributes) {
+    for (const property in tmpAttributes) {
       if ($(this).data('attribute') === property){
-        if(!tmpData[property]){
-          tmpData[property] = [$(this).val()]
-        } else {
-          tmpData[property].push($(this).val());
-        }
+        tmpAttributes[property].push($(this).val());
       }
     }
   });
 
   //Radio Buttons
   $('.user-attribute-radio').each(function(attribute, index){
-    for (const property in userAttributes) {
-      if ($(this).attr('name') === property){
-        if($(this).val() == userAttributes[property])
-          if($(this).prop('checked')){
-            if(!tmpData[property]){
-              tmpData[property] = [$(this).val()]
-            } else {
-              tmpData[property].push($(this).val());
-            }
-          }
+    for (const property in tmpAttributes) {
+      if ($(this).attr('name') == property){
+        if($(this).prop('checked') && tmpAttributes[property].indexOf($(this).val()) < 0){
+          tmpAttributes[property].push($(this).val());
+        }
       }
     }
   });
 
   //Checkboxes
   $('.user-attribute-checkbox').each(function(attribute, index){
-    for (const property in userAttributes) {
+    for (const property in tmpAttributes) {
       if ($(this).attr('name') === property){
         if ($(this).prop('checked')){
-          if(!tmpData[property]){
-            tmpData[property] = [$(this).val()]
-          } else {
-            tmpData[property].push($(this).val());
-          }
+          tmpAttributes[property].push($(this).val());
         }
       }
     }
@@ -468,14 +476,10 @@ function readFormData(){
   metadata.categories.forEach(function(category, index) {
     category.publications.forEach(function(publication, index) {
       $('.publication_' + publication.id).each(function(attribute, index){
-        for (const property in userAttributes) {
+        for (const property in tmpAttributes) {
           if ($(this).attr('name') === property){
             if ($(this).prop('checked')){
-              if(!tmpData[property]){
-                tmpData[property] = [$(this).val()]
-              } else {
-                tmpData[property].push($(this).val());
-              }
+              tmpAttributes[property].push($(this).val());
             }
           }
         }
@@ -483,16 +487,13 @@ function readFormData(){
     });
   });
 
-  //Copy Checkbox values back into userAttributes
-  for (const property in tmpData) {
-    userAttributes[property] = tmpData[property]
-  }
-
   //Update endpoint Users Attributes  TODO: Do we update all, or only update appropriate one if endpoint id is passed
   //TODO: do we want to make it configurable if user or endpoint attributes are updated?
   endpoints.forEach(function(endpoint, index) {
-    endpoint.User.UserAttributes = userAttributes;
+    endpoint.User.UserAttributes = tmpAttributes;
   });
+
+  console.log(endpoints);
 
 }
 
@@ -513,11 +514,17 @@ function hideForm() {
 }
 
 function showError(msg) {
-	$('#error').html(msg).show()
+  $('.error-notification').fadeIn().html('<i class="fas fa-exclamation-circle"></i> '+ msg);
+  setTimeout(function(){ 
+    $('.error-notification').fadeOut();
+  }, 4000);
 }
 
-function hideError() {
-	$('#error').html('').hide()
+function showSuccess(msg) {
+  $('.success-notification').fadeIn().html('<i class="far fa-check-circle"></i> ' + msg);
+  setTimeout(function(){ 
+    $('.success-notification').fadeOut();
+  }, 4000);
 }
 
 function registerHelpers(){
@@ -540,6 +547,7 @@ function registerHelpers(){
   Handlebars.registerHelper('buildInput', function (type, options) {
 
     var html = '';
+    var required = this.required ? 'required' : '';
     switch (this.inputType) {
         case 'select':
           html = '<select class="user-attribute-input" data-attribute="' + this.id + '" id="select_' + this.id + '">';
@@ -551,19 +559,19 @@ function registerHelpers(){
         case 'checkbox':
           html = '<span class="checkbox-container">';
           this.options.forEach((option, index) => {
-            html += '<input type="checkbox" class="user-attribute-checkbox" data-attribute="' + this.id + '" id="checkbox_' + this.id + '_' + index + '" name="' + this.id + '" value="' + option.value + '"> <label class="checkbox-label" for="checkbox_' + this.id + '_' + index + '">' + option.label + '</label>'
+            html += '<input type="checkbox" class="user-attribute-checkbox" data-attribute="' + this.id + '" id="checkbox_' + this.id + '_' + index + '" name="' + this.id + '" value="' + option.value + '" ' + required + '> <label class="checkbox-label" for="checkbox_' + this.id + '_' + index + '">' + option.label + '</label>'
           });
           html += '</span>'
           return new Handlebars.SafeString(html);
         case 'radio':
           html = '<span class="radio-container">';
           this.options.forEach((option, index) => {
-            html += '<input type="radio" class="user-attribute-radio" data-attribute="' + this.id + '" id="radio_' + this.id + '_' + index + '" name="' + this.id + '" value="' + option.value + '"> <label class="radio-label" for="radio_' + this.id + '_' + index + '">' + option.label + '</label>'
+            html += '<input type="radio" class="user-attribute-radio" data-attribute="' + this.id + '" id="radio_' + this.id + '_' + index + '" name="' + this.id + '" value="' + option.value + '" ' + required + '> <label class="radio-label" for="radio_' + this.id + '_' + index + '">' + option.label + '</label>'
           });
           html += '</span>'
           return new Handlebars.SafeString(html);
         default:
-          html = '<input class="user-' + type + '-input" type="text" data-attribute="' + this.id + '" placeholder="' + this.inputPlaceholder + '" id="' + type + '_' + this.id + '_' + options.data.index + '"></input>';
+          html = '<input class="user-' + type + '-input" type="text" data-attribute="' + this.id + '" placeholder="' + this.inputPlaceholder + '" id="' + type + '_' + this.id + '_' + options.data.index + '" ' + required + '></input>';
     }
     return new Handlebars.SafeString(html)
   });
