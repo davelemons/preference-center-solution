@@ -360,9 +360,21 @@ function upsertEndpoints(){
   console.log("upsertEndpoints!");
 
   //TODO Validate Form
-  showSuccess(metadata.text.successText)
 
   readFormData();
+
+  upsertUser() //TODO: pull from query string
+  .then(function(returnedEndpoints) {
+    endpoints = returnedEndpoints;
+    loadUser();
+    hideLoader();
+    showSuccess(metadata.text.successText)
+  })
+  .catch(function(e) {
+    console.error('Error:', e);
+    hideLoader();
+    showError(metadata.text.errorText);
+  });
 
   return;
 
@@ -376,15 +388,15 @@ function upsertEndpoints(){
 
 }
 
-function upsertEndpoint(endpoint){
+function upsertUser(){
   return new Promise(function(resolve, reject) {
       // Update mode
-      var requestUrl = baseURL + projectID + '/endpoints/' + encodeURIComponent(endpoint.Id);
+      var requestUrl = baseURL + projectID + '/users';
       $.ajax({
         url: requestUrl,
         type: 'PUT',
         contentType: 'application/json',
-        data: JSON.stringify(endpoint), 
+        data: JSON.stringify(endpoints), 
         headers: {
           'x-api-key': apiKey
         }
@@ -392,7 +404,7 @@ function upsertEndpoint(endpoint){
       .done(function(json) {
         if (json) {
           console.log(json)
-          resolve();
+          resolve(json);
         } else {
           reject();
         }

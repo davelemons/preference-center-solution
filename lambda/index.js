@@ -1,9 +1,13 @@
-const METADATA_TABLE = process.env.METADATA_TABLE
-
+const METADATA_TABLE = process.env.METADATA_TABLE;
+const CORS_DOMAIN = process.env.CORS_DOMAIN;
 const AWS = require('aws-sdk');
 const dynamo = new AWS.DynamoDB.DocumentClient();
 const pinpoint = new AWS.Pinpoint({region: process.env.REGION});
 const { v4: uuidv4 } = require('uuid');
+
+var xss = require("xss");
+const xssOptions = {}; // Specifiy Custom XSS Options here
+const sanitizer = new xss.FilterXSS(xssOptions);
 
 /**
  * Helper Methods
@@ -47,8 +51,43 @@ function getUser(projectID, userID) {
     });
 }
 
-function upsertEndpoint(projectID, endpointID, endpoint) {
+function upsertEndpoints(projectID, endpoints) {
   return new Promise((resolve, reject) => {
+
+      var userID = '';
+      endpoints.forEach(endpoint => {
+        if(endpoint.User.UserId) userID = endpoint.User.UserId;
+      });
+
+      if(!userID) userID = uuidv4(); //New user so generate a UUID
+
+      endpoints.reduce( (previousPromise, nextEndpoint) => {
+        return previousPromise.then(() => {
+          return upsertEndpoint(projectID, nextEndpoint);
+        });
+      }, Promise.resolve());
+
+      resolve();
+  });
+}
+function upsertEndpoint(projectID, endpoint) {
+  return new Promise((resolve, reject) => {
+
+      var endpointID = endpoint.Id || uuidv4(); //New Endpoint, go generate a UUID
+
+      //Remove following attributes...they were part of Get, but the Update doesn't like them
+      delete endpoint.ApplicationId;
+      delete endpoint.CohortId;
+      delete endpoint.CreationDate;
+      delete endpoint.Id; 
+
+      //Sanitize all user specified values
+      endpoint.Address = sanitizer.process(endpoint.Address);
+      endpoint.User.UserAttributes.forEach(attribute => {
+        attribute.forEach(value => {
+          value = sanitizer.process(value);
+        });
+      });
 
       var params = {
         ApplicationId: projectID,
@@ -76,7 +115,7 @@ exports.handler =  (event, context, callback) => {
         body: err ? err.message : JSON.stringify(res),
         headers: {
             "Content-Type": "application/json",
-            "Access-Control-Allow-Origin": "*", // Required for CORS support to work
+            "Access-Control-Allow-Origin": CORS_DOMAIN, // Required for CORS support to work
             "Access-Control-Allow-Credentials": true // Required for cookies, authorization headers with HTTPS
         },
     });
@@ -114,21 +153,10 @@ exports.handler =  (event, context, callback) => {
                 }
                 break;
             case 'PUT':
-                if (event.pathParameters && event.pathParameters.endpointID){
-                  var endpoint = JSON.parse(event.body);
-                  
-                  //Remove unexpected parameters
-                  delete endpoint.ApplicationId;
-                  delete endpoint.CohortId;
-                  delete endpoint.CreationDate;
-                  delete endpoint.Id;
-                  
-                  console.log(endpoint);
-                  
-                  //Sanitize inputs
-                  //TODO:
+                if (event.pathParameters){
+                  var endpoints = JSON.parse(event.body);
                     
-                  upsertEndpoint(event.pathParameters.projectID, decodeURIComponent(event.pathParameters.endpointID),endpoint )
+                  upsertEndpoints(event.pathParameters.projectID, endpoints)
                   .then(function(endpoint) {
                       done(null, endpoint);
                   }).catch(function(e) {

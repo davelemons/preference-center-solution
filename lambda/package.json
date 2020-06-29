@@ -10,6 +10,7 @@
   "author": "",
   "license": "MIT",
   "dependencies": {
-    "uuid": "^8.2.0"
+    "uuid": "^8.2.0",
+    "xss": "^1.0.7"
   }
 }
