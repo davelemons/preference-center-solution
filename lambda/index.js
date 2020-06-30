@@ -23,6 +23,7 @@ function getMetadata(projectID, preferenceCenterID) {
                 preferenceCenterID : preferenceCenterID
             }
         };
+        
 
         dynamo.get(params, function(err, metadata) {
             if (err) {
@@ -146,7 +147,8 @@ exports.handler =  (event, context, callback) => {
                             done(null, []);
                         } else {
                             //requesting preference center metadata
-                            getMetadata(event.pathParameters.projectID, event.queryStringParameters.pcid)
+                            var preferenceCenterID = event.queryStringParameters && event.queryStringParameters.pcid ? event.queryStringParameters.pcid : null;
+                            getMetadata(event.pathParameters.projectID, preferenceCenterID)
                             .then(function(metadata) {
                                 done(null, metadata);
                             }).catch(function(e) {
