@@ -37,6 +37,11 @@ label{
   display: inline;
 }
 
+.validetta-error > input{
+  margin-bottom: 3.5rem;
+  border-color:red;
+}
+
 .error-notification {
   display:none;
   padding: 0 15px;
@@ -114,6 +119,14 @@ label{
   transform: translateX(-50%) translateY(-50%);
 }
 
+#progress{
+  display: none;
+  height: 20px;
+  width: 20px;
+  vertical-align: middle;
+  margin-right: 1rem;
+}
+
 .radio-label,
 .checkbox-label{
   margin-right: 3em;
@@ -175,5 +188,13 @@ span.radio-container{
 
   .mobile-channel-label{
     margin-left: .5rem;
+  }
+
+  .row .column.column-33 {
+    max-width: calc(100% + 2.0rem);
+  }
+
+  .row .column.column-66 {
+    max-width: calc(100% + 2.0rem);
   }
 }

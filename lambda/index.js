@@ -12,13 +12,15 @@ const sanitizer = new xss.FilterXSS(xssOptions);
 /**
  * Helper Methods
  */
-function getMetadata(projectID) {
+function getMetadata(projectID, preferenceCenterID) {
     return new Promise((resolve, reject) => {
-
+        if (!preferenceCenterID) preferenceCenterID = 'default';
+        
         var params = {
             TableName: METADATA_TABLE,
             Key: {
-                projectID : projectID
+                projectID : projectID,
+                preferenceCenterID : preferenceCenterID
             }
         };
 
@@ -144,7 +146,7 @@ exports.handler =  (event, context, callback) => {
                             done(null, []);
                         } else {
                             //requesting preference center metadata
-                            getMetadata(event.pathParameters.projectID)
+                            getMetadata(event.pathParameters.projectID, event.queryStringParameters.pcid)
                             .then(function(metadata) {
                                 done(null, metadata);
                             }).catch(function(e) {
