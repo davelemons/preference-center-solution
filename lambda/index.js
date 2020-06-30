@@ -38,8 +38,6 @@ function processEvents (projectId, events) {
         BatchItem: events
       }
     }
-    
-    console.log(params)
 
     pinpoint.putEvents(params, function (err) {
       if (err) {
