@@ -4,6 +4,7 @@ const AWS = require('aws-sdk');
 const dynamo = new AWS.DynamoDB.DocumentClient();
 const pinpoint = new AWS.Pinpoint({region: process.env.REGION});
 const { v4: uuidv4 } = require('uuid');
+const moment = require('moment')
 
 var xss = require("xss");
 const xssOptions = {}; // Specifiy Custom XSS Options here
@@ -12,10 +13,47 @@ const sanitizer = new xss.FilterXSS(xssOptions);
 /**
  * Helper Methods
  */
+function createPinpointEvent (preferenceCenterID, eventType, endpoint, attributes) {
+  if(!endpoint) endpoint = {};
+  if(!attributes) attributes = {};
+
+  var customEvent = {
+    Endpoint: endpoint,
+    Events: {}
+  }
+
+  customEvent.Events[`preferenceCenter_${preferenceCenterID}`] = {
+    EventType: eventType,
+    Timestamp: moment().toISOString(),
+    Attributes: attributes
+  }
+  return customEvent
+}
+
+function processEvents (projectId, events) {
+  return new Promise((resolve) => {
+    var params = {
+      ApplicationId: projectId,
+      EventsRequest: {
+        BatchItem: events
+      }
+    }
+    
+    console.log(params)
+
+    pinpoint.putEvents(params, function (err) {
+      if (err) {
+        console.log(err, err.stack)
+        resolve() // Just going to log and return
+      } else {
+        resolve()
+      }
+    })
+  })
+}
+
 function getMetadata(projectID, preferenceCenterID) {
-    return new Promise((resolve, reject) => {
-        if (!preferenceCenterID) preferenceCenterID = 'default';
-        
+    return new Promise((resolve, reject) => {        
         var params = {
             TableName: METADATA_TABLE,
             Key: {
@@ -37,7 +75,7 @@ function getMetadata(projectID, preferenceCenterID) {
     });
 }
 
-function getUser(projectID, userID) {
+function getUserEndpoints(projectID, userID) {
     return new Promise((resolve, reject) => {
 
         var params = {
@@ -129,14 +167,26 @@ exports.handler =  (event, context, callback) => {
     });
 
     try {
+        var preferenceCenterID = event.queryStringParameters && event.queryStringParameters.pcid ? event.queryStringParameters.pcid : 'default';
+        var metadata = {}
+        var pinpointEvents = {}
+        var projectID = event.pathParameters.projectID
+
         switch (event.httpMethod) {
             case 'GET':
-                if (event.pathParameters && event.pathParameters.projectID) {
+                if (event.pathParameters && projectID) {
                     if(event.pathParameters.userID){
                         //requesting an enpoint
-                        getUser(event.pathParameters.projectID, event.pathParameters.userID)
-                        .then(function(user) {
-                            done(null, user);
+                        var endpoints = []
+                        var userID = event.pathParameters.userID
+                        getUserEndpoints(projectID, userID)
+                        .then(function(returnedEndpoints) {
+                            endpoints = returnedEndpoints
+                            pinpointEvents[projectID] = createPinpointEvent(preferenceCenterID, 'preferenceCenter_getUser', {}, {'userID':userID})
+                            return processEvents(projectID, pinpointEvents)
+                        })
+                        .then(function (){
+                            done(null, endpoints);
                         }).catch(function(e) {
                             console.log(e);
                             done(e);
@@ -147,10 +197,14 @@ exports.handler =  (event, context, callback) => {
                             done(null, []);
                         } else {
                             //requesting preference center metadata
-                            var preferenceCenterID = event.queryStringParameters && event.queryStringParameters.pcid ? event.queryStringParameters.pcid : null;
-                            getMetadata(event.pathParameters.projectID, preferenceCenterID)
-                            .then(function(metadata) {
-                                done(null, metadata);
+                            getMetadata(projectID, preferenceCenterID)
+                            .then(function(returnedMetadata) {
+                                metadata = returnedMetadata
+                                pinpointEvents[projectID] = createPinpointEvent(preferenceCenterID, 'preferenceCenter_open')
+                                return processEvents(projectID, pinpointEvents)
+                            })
+                            .then(function(){
+                              done(null, metadata);
                             }).catch(function(e) {
                                 console.log(e);
                                 done(e);
@@ -165,12 +219,24 @@ exports.handler =  (event, context, callback) => {
                 if (event.pathParameters){
                   var endpoints = JSON.parse(event.body);
                     
-                  upsertEndpoints(event.pathParameters.projectID, endpoints)
+                  upsertEndpoints(projectID, endpoints)
                   .then(function(userID) {
-                      return getUser(event.pathParameters.projectID, userID);
+                      return getUserEndpoints(projectID, userID);
                   })
-                  .then(function(user) {
-                      done(null, user);
+                  .then(function(returnedEndpoints) {
+                      endpoints = returnedEndpoints
+                      endpoints.forEach(endpoint => {
+                        //TODO: review with Ryan and Ilya to see why I have to do this...also review this event looks good.
+                        //Remove following attributes...they were part of Get, but the Update doesn't like them
+                        delete endpoint.ApplicationId;
+                        delete endpoint.CohortId;
+                        delete endpoint.CreationDate;
+                        delete endpoint.Id; 
+                        pinpointEvents[projectID] = createPinpointEvent(preferenceCenterID, 'preferenceCenter_updateEndpoint', endpoint, {})
+                      });
+                      return processEvents(projectID, pinpointEvents)
+                  }).then(function(){
+                      done(null, endpoints);
                   }).catch(function(e) {
                       console.log(e);
                       done(e);
