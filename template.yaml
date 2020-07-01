@@ -1,0 +1,649 @@
+AWSTemplateFormatVersion: 2010-09-09
+Transform: 'AWS::Serverless-2016-10-31'
+Description: Frontend Deploy Example
+
+Parameters:
+  PinpointProjectId:
+    Type: "String"
+    AllowedPattern: "^[a-z0-9]+$"
+    Default: "1aa20d5ade5c4699a5df45ddad370a10"
+
+Resources:
+
+  ################
+  # Lambda Deployer that pushes static files to S3
+  ################
+  TargetBucket:
+    Type: AWS::S3::Bucket
+    Properties:
+      WebsiteConfiguration:
+        IndexDocument: index.html
+
+  S3DeploymentLayer:
+    Type: AWS::Serverless::LayerVersion
+    Properties:
+      CompatibleRuntimes:
+        - python3.6
+        - python3.7
+      Description: S3 Deployment Layer
+      LayerName: !Ref AWS::StackName
+      LicenseInfo: MIT
+      ContentUri: lambdas/deployer
+      RetentionPolicy: Retain
+      
+
+  # this function is used only during deployment, 
+  # we use the web site assets as the source of the function
+  # tricking cloudformation to pack up the web site files
+  # using the standard cloudformation package process
+  PCDeployer:
+    Type: AWS::Serverless::Function
+    Properties:
+      Layers: 
+        # the layer contains the deployment code 
+        # so the function "source" can just contain the web assets
+        - !Ref S3DeploymentLayer
+
+      # point to directory with the assets so cloudformation can
+      # package and upload them
+      CodeUri: static-assets/
+
+      # really important: this will ensure that any change in 
+      # the bundled files gets deployed again. we're abusing
+      # the custom resource pipeline here, so this will be used
+      # to change parameters of the resource and re-trigger it
+      AutoPublishAlias: live
+
+      # the following two lines are required to make the layer work
+      Runtime: python3.6 
+      Handler: deployer.resource_handler
+
+      # set the timeout to something reasonable depending on
+      # how long it takes to upload your assets to S3
+      Timeout: 600
+
+      # give the function access to the bucket where it
+      # will upload the assets
+      Policies:
+        - S3FullAccessPolicy:
+            BucketName: !Ref TargetBucket
+
+  # This is a custom resource that
+  # will trigger the function during deployment
+  DeploymentResource:
+    Type: AWS::CloudFormation::CustomResource
+    DependsOn:
+    - ApiKey
+    - RestAPI
+    Properties:
+
+      # the following two lines are required to 
+      # ensure that cloudformation will trigger the
+      # resource every time you change the bundled files
+      ServiceToken: !GetAtt "PCDeployer.Arn"
+      Version: !Ref "PCDeployer.Version"
+
+      # tell the deployer where to upload the files
+      TargetBucket: !Ref TargetBucket
+
+      Substitutions:
+        FilePattern: "*.html"
+        Values:
+          PAGE_TITLE: 'My Cool Preference Center2'
+          API_KEY: !Ref ApiKey
+          API_URL: !Sub "https://${RestAPI}.execute-api.${AWS::Region}.amazonaws.com/prod2/preferencecenter/"
+      
+      Acl: 'private'
+      CacheControlMaxAge: 600
+
+  ################
+  # DynamoDB Table
+  ################
+  DynamoDBTable:
+    Type: AWS::DynamoDB::Table
+    Properties: 
+      TableName: "preferenceCenterMetadata2"
+      AttributeDefinitions:
+      - 
+        AttributeName: preferenceCenterID
+        AttributeType: S
+      - 
+        AttributeName: projectID
+        AttributeType: S
+      KeySchema:
+      - 
+        AttributeName: projectID
+        KeyType: HASH
+      - 
+        AttributeName: preferenceCenterID
+        KeyType: RANGE
+      ProvisionedThroughput:
+        ReadCapacityUnits: 5
+        WriteCapacityUnits: 5
+
+  BaseDataLambdaRole:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+        - Effect: Allow
+          Principal:
+            Service:
+            - lambda.amazonaws.com
+          Action:
+          - sts:AssumeRole
+      Path: "/"
+      Policies:
+        - PolicyName: dynamodbAccessRole
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+            - Effect: Allow
+              Action:
+              - dynamodb:*
+              Resource: "*" #TODO: lock this down
+            - Effect: Allow
+              Action:
+              - logs:*
+              Resource: "*"
+
+  BaseDataInitFunction:
+    Type: AWS::Lambda::Function
+    Properties:
+      Code: lambdas/dynamo-base-data 
+      Handler: index.handler
+      Role:
+        Fn::GetAtt: [ BaseDataLambdaRole , "Arn" ]
+      Runtime: nodejs12.x
+      Timeout: 60
+
+  InitializeDynamoDB:
+    Type: Custom::InitFunction
+    DependsOn: DynamoDBTable
+    Properties:
+      ServiceToken:
+         Fn::GetAtt: [ BaseDataInitFunction , "Arn" ]
+      DynamoTableName:
+        Ref: DynamoDBTable
+      PinpointProjectID: 
+        Ref: PinpointProjectId
+
+  ################
+  # Rest API
+  ################
+  RestAPI:
+    Type: AWS::ApiGateway::RestApi
+    Properties:
+      Name: Preference Center API
+      Description: REST API for Preference Center Functions
+      Body: 
+        swagger: "2.0"
+        info:
+          description: "Created by AWS Lambda"
+          version: "2020-07-01T18:25:55Z"
+          title: "preferencecenter"
+        schemes:
+        - "https"
+        paths:
+          /preferencecenter/{projectID}:
+            get:
+              produces:
+              - "application/json"
+              parameters:
+              - name: "projectID"
+                in: "path"
+                required: true
+                type: "string"
+              responses:
+                "200":
+                  description: "200 response"
+                  schema:
+                    $ref: "#/definitions/Empty"
+                  headers:
+                    Access-Control-Allow-Origin:
+                      type: "string"
+              security:
+              - api_key: []
+              x-amazon-apigateway-integration:
+                uri: !Sub
+                  - "arn:aws:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/${lambdaArn}/invocations"
+                  - lambdaArn: !GetAtt "lambdaFunction.Arn"
+                responses:
+                  default:
+                    statusCode: "200"
+                    responseParameters:
+                      method.response.header.Access-Control-Allow-Origin: "'*'"
+                passthroughBehavior: "when_no_match"
+                httpMethod: "POST"
+                contentHandling: "CONVERT_TO_TEXT"
+                type: "aws_proxy"
+            options:
+              consumes:
+              - "application/json"
+              produces:
+              - "application/json"
+              responses:
+                "200":
+                  description: "200 response"
+                  schema:
+                    $ref: "#/definitions/Empty"
+                  headers:
+                    Access-Control-Allow-Origin:
+                      type: "string"
+                    Access-Control-Allow-Methods:
+                      type: "string"
+                    Access-Control-Allow-Headers:
+                      type: "string"
+              x-amazon-apigateway-integration:
+                responses:
+                  default:
+                    statusCode: "200"
+                    responseParameters:
+                      method.response.header.Access-Control-Allow-Methods: "'GET,OPTIONS'"
+                      method.response.header.Access-Control-Allow-Headers: "'Content-Type,X-Amz-Date,Authorization,X-Api-Key,X-Amz-Security-Token'"
+                      method.response.header.Access-Control-Allow-Origin: "'*'"
+                requestTemplates:
+                  application/json: "{\"statusCode\": 200}"
+                passthroughBehavior: "when_no_match"
+                type: "mock"
+          /preferencecenter/{projectID}/users:
+            get:
+              produces:
+              - "application/json"
+              parameters:
+              - name: "projectID"
+                in: "path"
+                required: true
+                type: "string"
+              responses:
+                "200":
+                  description: "200 response"
+                  schema:
+                    $ref: "#/definitions/Empty"
+                  headers:
+                    Access-Control-Allow-Origin:
+                      type: "string"
+              security:
+              - api_key: []
+              x-amazon-apigateway-integration:
+                uri: !Sub
+                  - "arn:aws:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/${lambdaArn}/invocations"
+                  - lambdaArn: !GetAtt "lambdaFunction.Arn"
+                responses:
+                  default:
+                    statusCode: "200"
+                    responseParameters:
+                      method.response.header.Access-Control-Allow-Origin: "'*'"
+                passthroughBehavior: "when_no_match"
+                httpMethod: "POST"
+                contentHandling: "CONVERT_TO_TEXT"
+                type: "aws_proxy"
+            put:
+              produces:
+              - "application/json"
+              parameters:
+              - name: "projectID"
+                in: "path"
+                required: true
+                type: "string"
+              responses:
+                "200":
+                  description: "200 response"
+                  schema:
+                    $ref: "#/definitions/Empty"
+                  headers:
+                    Access-Control-Allow-Origin:
+                      type: "string"
+              security:
+              - api_key: []
+              x-amazon-apigateway-integration:
+                uri: !Sub
+                  - "arn:aws:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/${lambdaArn}/invocations"
+                  - lambdaArn: !GetAtt "lambdaFunction.Arn"
+                responses:
+                  default:
+                    statusCode: "200"
+                    responseParameters:
+                      method.response.header.Access-Control-Allow-Origin: "'*'"
+                passthroughBehavior: "when_no_match"
+                httpMethod: "POST"
+                contentHandling: "CONVERT_TO_TEXT"
+                type: "aws_proxy"
+            options:
+              consumes:
+              - "application/json"
+              produces:
+              - "application/json"
+              responses:
+                "200":
+                  description: "200 response"
+                  schema:
+                    $ref: "#/definitions/Empty"
+                  headers:
+                    Access-Control-Allow-Origin:
+                      type: "string"
+                    Access-Control-Allow-Methods:
+                      type: "string"
+                    Access-Control-Allow-Headers:
+                      type: "string"
+              x-amazon-apigateway-integration:
+                responses:
+                  default:
+                    statusCode: "200"
+                    responseParameters:
+                      method.response.header.Access-Control-Allow-Methods: "'GET,OPTIONS,PUT'"
+                      method.response.header.Access-Control-Allow-Headers: "'Content-Type,X-Amz-Date,Authorization,X-Api-Key,X-Amz-Security-Token'"
+                      method.response.header.Access-Control-Allow-Origin: "'*'"
+                requestTemplates:
+                  application/json: "{\"statusCode\": 200}"
+                passthroughBehavior: "when_no_match"
+                type: "mock"
+          /preferencecenter/{projectID}/users/{userID}:
+            get:
+              produces:
+              - "application/json"
+              parameters:
+              - name: "userID"
+                in: "path"
+                required: true
+                type: "string"
+              - name: "projectID"
+                in: "path"
+                required: true
+                type: "string"
+              responses:
+                "200":
+                  description: "200 response"
+                  schema:
+                    $ref: "#/definitions/Empty"
+                  headers:
+                    Access-Control-Allow-Origin:
+                      type: "string"
+              security:
+              - api_key: []
+              x-amazon-apigateway-integration:
+                uri: !Sub
+                  - "arn:aws:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/${lambdaArn}/invocations"
+                  - lambdaArn: !GetAtt "lambdaFunction.Arn"
+                responses:
+                  default:
+                    statusCode: "200"
+                    responseParameters:
+                      method.response.header.Access-Control-Allow-Origin: "'*'"
+                passthroughBehavior: "when_no_match"
+                httpMethod: "POST"
+                contentHandling: "CONVERT_TO_TEXT"
+                type: "aws_proxy"
+            options:
+              consumes:
+              - "application/json"
+              produces:
+              - "application/json"
+              responses:
+                "200":
+                  description: "200 response"
+                  schema:
+                    $ref: "#/definitions/Empty"
+                  headers:
+                    Access-Control-Allow-Origin:
+                      type: "string"
+                    Access-Control-Allow-Methods:
+                      type: "string"
+                    Access-Control-Allow-Headers:
+                      type: "string"
+              x-amazon-apigateway-integration:
+                responses:
+                  default:
+                    statusCode: "200"
+                    responseParameters:
+                      method.response.header.Access-Control-Allow-Methods: "'GET,OPTIONS'"
+                      method.response.header.Access-Control-Allow-Headers: "'Content-Type,X-Amz-Date,Authorization,X-Api-Key,X-Amz-Security-Token'"
+                      method.response.header.Access-Control-Allow-Origin: "'*'"
+                requestTemplates:
+                  application/json: "{\"statusCode\": 200}"
+                passthroughBehavior: "when_no_match"
+                type: "mock"
+        securityDefinitions:
+          api_key:
+            type: "apiKey"
+            name: "x-api-key"
+            in: "header"
+        definitions:
+          Empty:
+            type: "object"
+            title: "Empty Schema"
+
+
+# Dear Furture Dave...you left off here...trying to figure out how to do api gateway and deployment.
+  GatewayDeployment:
+    Type: "AWS::ApiGateway::Deployment"
+    DependsOn:
+    - "RestAPI"
+    Properties:
+      RestApiId: !Ref "RestAPI"
+      StageName: "prod2"
+
+  GatewayStage:
+    Type: AWS::ApiGateway::Stage
+    DependsOn:
+    - "GatewayDeployment"
+    Properties:
+      StageName: prod2
+      Description: Prod Stage
+      RestApiId: !Ref RestAPI
+      DeploymentId: !Ref GatewayDeployment
+
+  UsagePlan:
+    Type: 'AWS::ApiGateway::UsagePlan'
+    DependsOn:
+    - "GatewayDeployment"
+    Properties:
+      ApiStages:
+        - ApiId: !Ref RestAPI
+          Stage: !Ref GatewayStage
+      Description: Preference Center API Usage Plan
+      Throttle:
+        BurstLimit: 50
+        RateLimit: 50
+      UsagePlanName: PreferenceCenterUsagePlan
+
+  ApiKey:
+    Type: 'AWS::ApiGateway::ApiKey'
+    DependsOn:
+    - GatewayDeployment
+    - GatewayStage
+    Properties:
+      Name: PreferenceCenterAPI
+      Description: API Key for the Preference Center
+      Enabled: 'true'
+      StageKeys:
+        - RestApiId: !Ref RestAPI
+          StageName: GatewayStage
+
+  UsagePlanKey:
+    Type: 'AWS::ApiGateway::UsagePlanKey'
+    DependsOn:
+    - ApiKey
+    - UsagePlan
+    Properties:
+      KeyId: !Ref ApiKey
+      KeyType: API_KEY
+      UsagePlanId: !Ref UsagePlan
+
+  lambdaFunction:
+    Type: "AWS::Lambda::Function"
+    Properties:
+      Code: lambdas/api
+      Description: "Preference Center Handler"
+      FunctionName: "PreferenceCenterHandler"
+      Handler: "index.handler"
+      MemorySize: 512
+      Role: !GetAtt "lambdaIAMRole.Arn"
+      Runtime: "nodejs12.x"
+      Timeout: 10
+      Environment:  
+        Variables:
+          CORS_DOMAIN: !GetAtt CloudFrontDistribution.DomainName
+          METADATA_TABLE: !Ref PinpointProjectId
+          REGION: !Ref "AWS::Region"
+
+  # TODO: Can I combine these?
+  lambdaApiGatewayInvokeMetadataGet:
+    Type: "AWS::Lambda::Permission"
+    Properties:
+      Action: "lambda:InvokeFunction"
+      FunctionName: !GetAtt "lambdaFunction.Arn"
+      Principal: "apigateway.amazonaws.com"
+      SourceArn: !Sub "arn:aws:execute-api:${AWS::Region}:${AWS::AccountId}:${}/*/GET/preferencecenter/*"
+
+  lambdaApiGatewayInvokeUsersGet:
+    Type: "AWS::Lambda::Permission"
+    Properties:
+      Action: "lambda:InvokeFunction"
+      FunctionName: !GetAtt "lambdaFunction.Arn"
+      Principal: "apigateway.amazonaws.com"
+      SourceArn: !Sub "arn:aws:execute-api:${AWS::Region}:${AWS::AccountId}:${RestAPI}/*/GET/preferencecenter/*/users"
+
+  lambdaApiGatewayInvokeUsersPut:
+    Type: "AWS::Lambda::Permission"
+    Properties:
+      Action: "lambda:InvokeFunction"
+      FunctionName: !GetAtt "lambdaFunction.Arn"
+      Principal: "apigateway.amazonaws.com"
+      SourceArn: !Sub "arn:aws:execute-api:${AWS::Region}:${AWS::AccountId}:${RestAPI}/*/PUT/preferencecenter/*/users"
+
+  lambdaApiGatewayInvokeMetadataGet:
+    Type: "AWS::Lambda::Permission"
+    Properties:
+      Action: "lambda:InvokeFunction"
+      FunctionName: !GetAtt "lambdaFunction.Arn"
+      Principal: "apigateway.amazonaws.com"
+      SourceArn: !Sub "arn:aws:execute-api:${AWS::Region}:${AWS::AccountId}:${RestAPI}/*/PUT/preferencecenter/*/users"
+
+  lambdaIAMRole:
+    Type: "AWS::IAM::Role"
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Action:
+              - "sts:AssumeRole"
+            Effect: "Allow"
+            Principal:
+              Service:
+                - "lambda.amazonaws.com"
+      Policies:
+        - PolicyDocument:
+            Version: "2012-10-17"
+            Statement:
+              - Action:
+                  - "logs:CreateLogGroup"
+                  - "logs:CreateLogStream"
+                  - "logs:PutLogEvents"
+                Effect: "Allow"
+                Resource:
+                  - !Sub "arn:aws:logs:${AWS::Region}:${AWS::AccountId}:log-group:/aws/lambda/PreferenceCenterHandler:*"
+          PolicyName: "lambda"
+        - PolicyDocument:
+            Version: "2012-10-17"
+            Statement:
+              - Action:
+                  - "dynamodb:GetItem"
+                Effect: "Allow"
+                Resource:
+                  - !Sub "arn:aws:dynamodb:${AWS::Region}:${AWS::AccountId}:table/preferenceCenterMetadata2"
+          PolicyName: "dynamoDB"
+        - PolicyDocument:
+            Version: "2012-10-17"
+            Statement:
+              - Action:
+                  - "mobiletargeting:PutEvents"
+                  - "mobiletargeting:GetEndpoint"
+                  - "mobiletargeting:UpdateEndpoint"
+                  - "mobiletargeting:UpdateEndpointsBatch"
+                  - "mobiletargeting:GetUserEndpoints"
+                Effect: "Allow"
+                Resource:
+                  - !Sub "arn:aws:mobiletargeting:${AWS::Region}:${AWS::AccountId}:apps/*"
+          PolicyName: "pinpoint"
+
+  lambdaLogGroup:
+    Type: "AWS::Logs::LogGroup"
+    Properties:
+      LogGroupName: "/aws/lambda/PreferenceCenterHandler"
+      RetentionInDays: 90
+
+  ################
+  # CloudFront
+  ################
+  ReadPolicy:
+    Type: 'AWS::S3::BucketPolicy'
+    Properties:
+      Bucket: !Ref TargetBucket
+      PolicyDocument:
+        Statement:
+        - Action: 's3:GetObject'
+          Effect: Allow
+          Resource: !Sub 'arn:aws:s3:::${TargetBucket}/*'
+          Principal:
+            CanonicalUser: !GetAtt CloudFrontOriginAccessIdentity.S3CanonicalUserId
+
+  CloudFrontOriginAccessIdentity:
+    Type: 'AWS::CloudFront::CloudFrontOriginAccessIdentity'
+    Properties:
+      CloudFrontOriginAccessIdentityConfig:
+        Comment: !Ref TargetBucket
+
+  CloudFrontDistribution:
+    Type: "AWS::CloudFront::Distribution"
+    Properties:
+        DistributionConfig: 
+            Origins:
+            - DomainName: !GetAtt 'TargetBucket.DomainName'
+              Id: s3origin
+              S3OriginConfig:
+                OriginAccessIdentity: !Sub 'origin-access-identity/cloudfront/${CloudFrontOriginAccessIdentity}'
+            DefaultCacheBehavior: 
+                AllowedMethods: 
+                - GET
+                - HEAD
+                - OPTIONS
+                CachedMethods: 
+                - GET
+                - HEAD
+                - OPTIONS
+                Compress: true
+                DefaultTTL: 3600
+                ForwardedValues: 
+                    Cookies: 
+                        Forward: "none"
+                    QueryString: false
+                MaxTTL: 86400
+                MinTTL: 60
+                SmoothStreaming: false
+                TargetOriginId: s3origin
+                ViewerProtocolPolicy: "redirect-to-https"
+            Comment: ""
+            PriceClass: "PriceClass_All"
+            Enabled: true
+            ViewerCertificate: 
+                CloudFrontDefaultCertificate: true
+                MinimumProtocolVersion: "TLSv1"
+            Restrictions: 
+                GeoRestriction: 
+                    RestrictionType: "none"
+            HttpVersion: "http2"
+            IPV6Enabled: true
+
+Outputs:
+  DestinationBucket:
+    Value: !Ref TargetBucket
+  DestinationUrl:
+    Value: !GetAtt TargetBucket.WebsiteURL
+  DistributionId:
+    Description: 'CloudFront Distribution ID'
+    Value: !Ref CloudFrontDistribution
+  Domain:
+    Description: 'Cloudfront Domain'
+    Value: !GetAtt CloudFrontDistribution.DomainName

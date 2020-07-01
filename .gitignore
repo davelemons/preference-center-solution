@@ -106,3 +106,5 @@ dist
 function.zip
 
 .DS_Store
+
+packaged-template.yaml
