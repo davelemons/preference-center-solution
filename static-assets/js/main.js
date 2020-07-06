@@ -1,7 +1,7 @@
 //const apiKey = 'TkpUxABWt5aVSeh5k5Fac6EBR8ytwoxS3raEvHME'
 //const baseURL = 'https://d72sxacxcl.execute-api.us-east-1.amazonaws.com/prod/preferencecenter/'
 
-const apiKey = '${PAGE_TITLE}'
+const apiKey = '${API_KEY}'
 const baseURL = '${API_URL}'
 
 const projectID = getParameterByName('pid') // '1aa20d5ade5c4699a5df45ddad370a10'

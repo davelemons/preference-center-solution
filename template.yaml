@@ -1,21 +1,22 @@
 AWSTemplateFormatVersion: 2010-09-09
 Transform: 'AWS::Serverless-2016-10-31'
-Description: Frontend Deploy Example
+Description: Pinpoint Preference Center
 
 Parameters:
   PinpointProjectId:
     Type: "String"
     AllowedPattern: "^[a-z0-9]+$"
-    Default: "1aa20d5ade5c4699a5df45ddad370a10"
+    Default: "cba5adbc9f6a40da8d725619fff55ab2"
 
 Resources:
 
   ################
   # Lambda Deployer that pushes static files to S3
   ################
-  TargetBucket:
+  StaticFiles:
     Type: AWS::S3::Bucket
     Properties:
+      AccessControl: Private
       WebsiteConfiguration:
         IndexDocument: index.html
 
@@ -40,59 +41,32 @@ Resources:
     Type: AWS::Serverless::Function
     Properties:
       Layers: 
-        # the layer contains the deployment code 
-        # so the function "source" can just contain the web assets
         - !Ref S3DeploymentLayer
-
-      # point to directory with the assets so cloudformation can
-      # package and upload them
       CodeUri: static-assets/
-
-      # really important: this will ensure that any change in 
-      # the bundled files gets deployed again. we're abusing
-      # the custom resource pipeline here, so this will be used
-      # to change parameters of the resource and re-trigger it
       AutoPublishAlias: live
-
-      # the following two lines are required to make the layer work
       Runtime: python3.6 
       Handler: deployer.resource_handler
-
-      # set the timeout to something reasonable depending on
-      # how long it takes to upload your assets to S3
       Timeout: 600
-
-      # give the function access to the bucket where it
-      # will upload the assets
       Policies:
         - S3FullAccessPolicy:
-            BucketName: !Ref TargetBucket
+            BucketName: !Ref StaticFiles
 
-  # This is a custom resource that
-  # will trigger the function during deployment
   DeploymentResource:
     Type: AWS::CloudFormation::CustomResource
     DependsOn:
     - ApiKey
     - RestAPI
+    - BaseDataInitFunction
     Properties:
-
-      # the following two lines are required to 
-      # ensure that cloudformation will trigger the
-      # resource every time you change the bundled files
       ServiceToken: !GetAtt "PCDeployer.Arn"
       Version: !Ref "PCDeployer.Version"
-
-      # tell the deployer where to upload the files
-      TargetBucket: !Ref TargetBucket
-
+      TargetBucket: !Ref StaticFiles
       Substitutions:
-        FilePattern: "*.html"
+        FilePattern: "**/*"
         Values:
-          PAGE_TITLE: 'My Cool Preference Center2'
-          API_KEY: !Ref ApiKey
-          API_URL: !Sub "https://${RestAPI}.execute-api.${AWS::Region}.amazonaws.com/prod2/preferencecenter/"
-      
+          PAGE_TITLE: 'My Cool Preference Center'
+          API_KEY: !GetAtt "SetInitialValues.apiKey"
+          API_URL: !Sub "https://${RestAPI}.execute-api.${AWS::Region}.amazonaws.com/prod/preferencecenter/"
       Acl: 'private'
       CacheControlMaxAge: 600
 
@@ -102,7 +76,7 @@ Resources:
   DynamoDBTable:
     Type: AWS::DynamoDB::Table
     Properties: 
-      TableName: "preferenceCenterMetadata2"
+      TableName: "preferenceCenterMetadata"
       AttributeDefinitions:
       - 
         AttributeName: preferenceCenterID
@@ -135,32 +109,40 @@ Resources:
           - sts:AssumeRole
       Path: "/"
       Policies:
-        - PolicyName: dynamodbAccessRole
+        - PolicyName: baseDataInitAccessRole
           PolicyDocument:
             Version: '2012-10-17'
             Statement:
             - Effect: Allow
               Action:
-              - dynamodb:*
-              Resource: "*" #TODO: lock this down
+              - dynamodb:PutItem 
+              Resource: "*"
+            - Effect: Allow
+              Action: 
+              - apigateway:GET 
+              Resource: "*"
             - Effect: Allow
               Action:
-              - logs:*
+              - "logs:CreateLogGroup"
+              - "logs:CreateLogStream"
+              - "logs:PutLogEvents"
               Resource: "*"
 
   BaseDataInitFunction:
     Type: AWS::Lambda::Function
     Properties:
-      Code: lambdas/dynamo-base-data 
+      Code: lambdas/set-initial-values 
       Handler: index.handler
       Role:
         Fn::GetAtt: [ BaseDataLambdaRole , "Arn" ]
       Runtime: nodejs12.x
       Timeout: 60
 
-  InitializeDynamoDB:
+  SetInitialValues:
     Type: Custom::InitFunction
-    DependsOn: DynamoDBTable
+    DependsOn:
+    - "ApiKey"
+    - "DynamoDBTable"
     Properties:
       ServiceToken:
          Fn::GetAtt: [ BaseDataInitFunction , "Arn" ]
@@ -168,6 +150,8 @@ Resources:
         Ref: DynamoDBTable
       PinpointProjectID: 
         Ref: PinpointProjectId
+      ApiKeyID: 
+        Ref: ApiKey
 
   ################
   # Rest API
@@ -177,6 +161,8 @@ Resources:
     Properties:
       Name: Preference Center API
       Description: REST API for Preference Center Functions
+      Parameters:
+        endpointConfigurationTypes: REGIONAL
       Body: 
         swagger: "2.0"
         info:
@@ -414,34 +400,33 @@ Resources:
             type: "object"
             title: "Empty Schema"
 
-
-# Dear Furture Dave...you left off here...trying to figure out how to do api gateway and deployment.
   GatewayDeployment:
     Type: "AWS::ApiGateway::Deployment"
     DependsOn:
     - "RestAPI"
     Properties:
       RestApiId: !Ref "RestAPI"
-      StageName: "prod2"
 
   GatewayStage:
     Type: AWS::ApiGateway::Stage
     DependsOn:
+    - "RestAPI"
     - "GatewayDeployment"
     Properties:
-      StageName: prod2
+      StageName: prod
       Description: Prod Stage
-      RestApiId: !Ref RestAPI
+      RestApiId: !Ref "RestAPI"
       DeploymentId: !Ref GatewayDeployment
 
   UsagePlan:
     Type: 'AWS::ApiGateway::UsagePlan'
     DependsOn:
-    - "GatewayDeployment"
+    - "RestAPI"
+    - "GatewayStage"
     Properties:
       ApiStages:
-        - ApiId: !Ref RestAPI
-          Stage: !Ref GatewayStage
+        - ApiId: !Ref "RestAPI"
+          Stage: !Ref "GatewayStage"
       Description: Preference Center API Usage Plan
       Throttle:
         BurstLimit: 50
@@ -451,15 +436,15 @@ Resources:
   ApiKey:
     Type: 'AWS::ApiGateway::ApiKey'
     DependsOn:
-    - GatewayDeployment
-    - GatewayStage
+    - "RestAPI"
+    - "GatewayStage"
     Properties:
       Name: PreferenceCenterAPI
       Description: API Key for the Preference Center
       Enabled: 'true'
       StageKeys:
-        - RestApiId: !Ref RestAPI
-          StageName: GatewayStage
+        - RestApiId: !Ref "RestAPI"
+          StageName: !Ref "GatewayStage"
 
   UsagePlanKey:
     Type: 'AWS::ApiGateway::UsagePlanKey'
@@ -485,36 +470,44 @@ Resources:
       Environment:  
         Variables:
           CORS_DOMAIN: !GetAtt CloudFrontDistribution.DomainName
-          METADATA_TABLE: !Ref PinpointProjectId
+          METADATA_TABLE: !Ref DynamoDBTable
           REGION: !Ref "AWS::Region"
 
   # TODO: Can I combine these?
   lambdaApiGatewayInvokeMetadataGet:
     Type: "AWS::Lambda::Permission"
+    DependsOn:
+    - RestAPI
     Properties:
       Action: "lambda:InvokeFunction"
       FunctionName: !GetAtt "lambdaFunction.Arn"
       Principal: "apigateway.amazonaws.com"
-      SourceArn: !Sub "arn:aws:execute-api:${AWS::Region}:${AWS::AccountId}:${}/*/GET/preferencecenter/*"
+      SourceArn: !Sub "arn:aws:execute-api:${AWS::Region}:${AWS::AccountId}:${RestAPI}/*/GET/preferencecenter/*"
 
-  lambdaApiGatewayInvokeUsersGet:
+  lambdaApiGatewayInvokeGetUsers:
     Type: "AWS::Lambda::Permission"
+    DependsOn:
+    - RestAPI
     Properties:
       Action: "lambda:InvokeFunction"
       FunctionName: !GetAtt "lambdaFunction.Arn"
       Principal: "apigateway.amazonaws.com"
       SourceArn: !Sub "arn:aws:execute-api:${AWS::Region}:${AWS::AccountId}:${RestAPI}/*/GET/preferencecenter/*/users"
 
-  lambdaApiGatewayInvokeUsersPut:
+  lambdaApiGatewayInvokeGetUser:
     Type: "AWS::Lambda::Permission"
+    DependsOn:
+    - RestAPI
     Properties:
       Action: "lambda:InvokeFunction"
       FunctionName: !GetAtt "lambdaFunction.Arn"
       Principal: "apigateway.amazonaws.com"
-      SourceArn: !Sub "arn:aws:execute-api:${AWS::Region}:${AWS::AccountId}:${RestAPI}/*/PUT/preferencecenter/*/users"
+      SourceArn: !Sub "arn:aws:execute-api:${AWS::Region}:${AWS::AccountId}:${RestAPI}/*/GET/preferencecenter/*/users/*"
 
-  lambdaApiGatewayInvokeMetadataGet:
+  lambdaApiGatewayInvokeUsersPut:
     Type: "AWS::Lambda::Permission"
+    DependsOn:
+    - RestAPI
     Properties:
       Action: "lambda:InvokeFunction"
       FunctionName: !GetAtt "lambdaFunction.Arn"
@@ -552,7 +545,7 @@ Resources:
                   - "dynamodb:GetItem"
                 Effect: "Allow"
                 Resource:
-                  - !Sub "arn:aws:dynamodb:${AWS::Region}:${AWS::AccountId}:table/preferenceCenterMetadata2"
+                  - !Sub "arn:aws:dynamodb:${AWS::Region}:${AWS::AccountId}:table/preferenceCenterMetadata"
           PolicyName: "dynamoDB"
         - PolicyDocument:
             Version: "2012-10-17"
@@ -580,12 +573,12 @@ Resources:
   ReadPolicy:
     Type: 'AWS::S3::BucketPolicy'
     Properties:
-      Bucket: !Ref TargetBucket
+      Bucket: !Ref StaticFiles
       PolicyDocument:
         Statement:
         - Action: 's3:GetObject'
           Effect: Allow
-          Resource: !Sub 'arn:aws:s3:::${TargetBucket}/*'
+          Resource: !Sub 'arn:aws:s3:::${StaticFiles}/*'
           Principal:
             CanonicalUser: !GetAtt CloudFrontOriginAccessIdentity.S3CanonicalUserId
 
@@ -593,14 +586,14 @@ Resources:
     Type: 'AWS::CloudFront::CloudFrontOriginAccessIdentity'
     Properties:
       CloudFrontOriginAccessIdentityConfig:
-        Comment: !Ref TargetBucket
+        Comment: !Ref StaticFiles
 
   CloudFrontDistribution:
     Type: "AWS::CloudFront::Distribution"
     Properties:
         DistributionConfig: 
             Origins:
-            - DomainName: !GetAtt 'TargetBucket.DomainName'
+            - DomainName: !GetAtt 'StaticFiles.DomainName'
               Id: s3origin
               S3OriginConfig:
                 OriginAccessIdentity: !Sub 'origin-access-identity/cloudfront/${CloudFrontOriginAccessIdentity}'
@@ -637,13 +630,17 @@ Resources:
             IPV6Enabled: true
 
 Outputs:
-  DestinationBucket:
-    Value: !Ref TargetBucket
-  DestinationUrl:
-    Value: !GetAtt TargetBucket.WebsiteURL
-  DistributionId:
-    Description: 'CloudFront Distribution ID'
-    Value: !Ref CloudFrontDistribution
   Domain:
     Description: 'Cloudfront Domain'
     Value: !GetAtt CloudFrontDistribution.DomainName
+  APIKey: 
+    Description: 'The API Key to use for all Preference Center API Calls'
+    Value: !GetAtt "SetInitialValues.apiKey"
+  APIURL: 
+    Description: 'The REST Endpoint for the Preference Center API'
+    Value: !Sub "https://${RestAPI}.execute-api.${AWS::Region}.amazonaws.com/prod/preferencecenter/"
+  PreferenceCenterOptInURL:
+    Description: 'Use this link to opt users into communications'
+    Value: !Sub
+      - 'https://${CFDomain}/index.html?pid=${PinpointProjectId}'
+      - CFDomain: !GetAtt CloudFrontDistribution.DomainName

@@ -1,26 +1,17 @@
 const AWS = require('aws-sdk');
 const dynamo = new AWS.DynamoDB.DocumentClient();
+const https = require("https");
+const url = require('url');
 
-var xss = require("xss");
-const xssOptions = {}; // Specifiy Custom XSS Options here
-const sanitizer = new xss.FilterXSS(xssOptions);
+function putMetadata(tableName, projectID) {
+  return new Promise((resolve, reject) => {
 
+    console.log("putMetadata");
 
-exports.handler =  (event, context, callback) => {
-    console.log('Received event:', JSON.stringify(event, null, 2));
-
-    const done = (err, res) => callback(null, {
-        statusCode: err ? '500' : '200',
-        body: err ? err.message : JSON.stringify(res),
-        headers: {
-            "Content-Type": "application/json"
-        },
-    });
-  
     var params = {
-      TableName: event.ResourceProperties.DynamoTableName,
+      TableName: tableName,
       Item:{
-        "projectID": event.ResourceProperties.PinpointProjectID,
+        "projectID": projectID,
         "websiteURL": "http://aws.amazon.com",
         "unsubscribe": {
           "surveyQuestions": ["I no longer want to receive these emails", "I never signed up for this mailing list", "The emails are inappropriate", "The emails are spam and should be reported", "Other (fill in reason below)"],
@@ -184,11 +175,111 @@ exports.handler =  (event, context, callback) => {
       }
     };
 
-    docClient.put(params, function(err, data) { 
+    dynamo.put(params, function(err, data) { 
       if (err) {
+        console.log("putMetadata Error:");
         console.log(err);
+        reject(err);
       } else {
-        done(null,data)
+        console.log("putMetadata Success!");
+        resolve(data);
       }
-    })
+    });
+  });
+}
+
+function getAPIKey(apiKeyID) {
+  return new Promise((resolve, reject) => {
+    console.log("getAPIKey");
+    var apigateway = new AWS.APIGateway();
+    var params = {
+      apiKey: apiKeyID,
+      includeValue: true
+    };
+
+    apigateway.getApiKey(params, function(err, ApiKeyData) {
+      if (err) {
+        console.log("getAPIKey Error:");
+        console.log(err, err.stack); // an error occurred
+        reject(err);
+      } else {
+        console.log("getAPIKey Success");
+        console.log(ApiKeyData.value);      // successful response
+        resolve(ApiKeyData.value);
+      }
+    });
+  });
+}
+
+exports.handler =  (event, context, callback) => {
+    console.log('Received event:', JSON.stringify(event, null, 2));
+
+    try{
+      putMetadata(event.ResourceProperties.DynamoTableName, event.ResourceProperties.PinpointProjectID)
+      .then(function(){
+        return getAPIKey(event.ResourceProperties.ApiKeyID);
+      })
+      .then(function(apiKey){
+        return sendResponse(event, context.logStreamName, 'SUCCESS', {'apiKey':apiKey});
+      })
+      .catch(function(err){
+        console.log(JSON.stringify(err));
+        return sendResponse(event, context.logStreamName, 'FAILED', {});
+      });
+    }
+    catch (ex){
+      console.log(JSON.stringify(ex));
+      return sendResponse(event, context.logStreamName, 'FAILED', {});
+    }
+};
+
+/**
+* Sends a response to the pre-signed S3 URL
+*/
+let sendResponse = function(event, logStreamName, responseStatus, responseData) {
+  return new Promise((resolve, reject) => {
+    try {
+      const responseBody = JSON.stringify({
+          Status: responseStatus,
+          Reason: `See the details in CloudWatch Log Stream: ${logStreamName}`,
+          PhysicalResourceId: logStreamName,
+          StackId: event.StackId,
+          RequestId: event.RequestId,
+          LogicalResourceId: event.LogicalResourceId,
+          Data: responseData,
+      });
+
+      console.log('RESPONSE BODY:\n', responseBody);
+      const parsedUrl = url.parse(event.ResponseURL);
+      const options = {
+          hostname: parsedUrl.hostname,
+          port: 443,
+          path: parsedUrl.path,
+          method: 'PUT',
+          headers: {
+              'Content-Type': '',
+              'Content-Length': responseBody.length,
+          }
+      };
+
+      const req = https.request(options, (res) => {
+          console.log('STATUS:', res.statusCode);
+          console.log('HEADERS:', JSON.stringify(res.headers));
+          resolve('Successfully sent stack response!');
+      });
+
+      req.on('error', (err) => {
+          console.log('sendResponse Error:\n', err);
+          reject(err);
+      });
+
+      req.write(responseBody);
+      req.end();
+
+    } catch(err) {
+      console.log('GOT ERROR');
+      console.log(err);
+      reject(err);
+    }
+  });
 };

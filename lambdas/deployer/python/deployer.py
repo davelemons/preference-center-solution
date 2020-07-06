@@ -126,7 +126,7 @@ def apply_substitutions(substitutions, temp_dir):
     replace_with_command = lambda key: 's/\\${%s}/%s/g'% (sed_escape(key), sed_escape(values[key]))
     replacements = list(map(replace_with_command, values.keys()))
     sed_script = ';'.join(replacements)
-    subprocess.run(['sed', sed_script, '-i', str(full_path)], cwd=tempfile.gettempdir(), check=True)
+    subprocess.run(['sed', sed_script, '-i', str(full_path)], cwd=tempfile.gettempdir(), check=False)
 
 def sed_escape(text):
  return text.replace('/', '\\/')
