@@ -116,11 +116,11 @@ Resources:
             - Effect: Allow
               Action:
               - dynamodb:PutItem 
-              Resource: "*"
+              Resource: "*" #TODO: Lock this down
             - Effect: Allow
               Action: 
               - apigateway:GET 
-              Resource: "*"
+              Resource: "*" #TODO: Lock this down
             - Effect: Allow
               Action:
               - "logs:CreateLogGroup"
@@ -199,7 +199,7 @@ Resources:
                   default:
                     statusCode: "200"
                     responseParameters:
-                      method.response.header.Access-Control-Allow-Origin: "'*'"
+                      method.response.header.Access-Control-Allow-Origin: "'*'" #TODO: Lock this down
                 passthroughBehavior: "when_no_match"
                 httpMethod: "POST"
                 contentHandling: "CONVERT_TO_TEXT"
@@ -228,7 +228,7 @@ Resources:
                     responseParameters:
                       method.response.header.Access-Control-Allow-Methods: "'GET,OPTIONS'"
                       method.response.header.Access-Control-Allow-Headers: "'Content-Type,X-Amz-Date,Authorization,X-Api-Key,X-Amz-Security-Token'"
-                      method.response.header.Access-Control-Allow-Origin: "'*'"
+                      method.response.header.Access-Control-Allow-Origin: "'*'" #TODO: Lock this down
                 requestTemplates:
                   application/json: "{\"statusCode\": 200}"
                 passthroughBehavior: "when_no_match"
@@ -260,7 +260,7 @@ Resources:
                   default:
                     statusCode: "200"
                     responseParameters:
-                      method.response.header.Access-Control-Allow-Origin: "'*'"
+                      method.response.header.Access-Control-Allow-Origin: "'*'" #TODO: Lock this down
                 passthroughBehavior: "when_no_match"
                 httpMethod: "POST"
                 contentHandling: "CONVERT_TO_TEXT"
@@ -291,7 +291,7 @@ Resources:
                   default:
                     statusCode: "200"
                     responseParameters:
-                      method.response.header.Access-Control-Allow-Origin: "'*'"
+                      method.response.header.Access-Control-Allow-Origin: "'*'" #TODO: Lock this down
                 passthroughBehavior: "when_no_match"
                 httpMethod: "POST"
                 contentHandling: "CONVERT_TO_TEXT"
@@ -320,7 +320,7 @@ Resources:
                     responseParameters:
                       method.response.header.Access-Control-Allow-Methods: "'GET,OPTIONS,PUT'"
                       method.response.header.Access-Control-Allow-Headers: "'Content-Type,X-Amz-Date,Authorization,X-Api-Key,X-Amz-Security-Token'"
-                      method.response.header.Access-Control-Allow-Origin: "'*'"
+                      method.response.header.Access-Control-Allow-Origin: "'*'" #TODO: Lock this down
                 requestTemplates:
                   application/json: "{\"statusCode\": 200}"
                 passthroughBehavior: "when_no_match"
@@ -356,7 +356,7 @@ Resources:
                   default:
                     statusCode: "200"
                     responseParameters:
-                      method.response.header.Access-Control-Allow-Origin: "'*'"
+                      method.response.header.Access-Control-Allow-Origin: "'*'" #TODO: Lock this down
                 passthroughBehavior: "when_no_match"
                 httpMethod: "POST"
                 contentHandling: "CONVERT_TO_TEXT"
@@ -385,7 +385,7 @@ Resources:
                     responseParameters:
                       method.response.header.Access-Control-Allow-Methods: "'GET,OPTIONS'"
                       method.response.header.Access-Control-Allow-Headers: "'Content-Type,X-Amz-Date,Authorization,X-Api-Key,X-Amz-Security-Token'"
-                      method.response.header.Access-Control-Allow-Origin: "'*'"
+                      method.response.header.Access-Control-Allow-Origin: "'*'" #TODO: Lock this down
                 requestTemplates:
                   application/json: "{\"statusCode\": 200}"
                 passthroughBehavior: "when_no_match"
