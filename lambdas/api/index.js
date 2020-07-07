@@ -281,11 +281,13 @@ exports.handler =  (event, context, callback) => {
                       endpoints.forEach(endpoint => {
                         //TODO: review with Ryan and Ilya to see why I have to do this...also review this event looks good.
                         //Remove following attributes...they were part of Get, but the Update doesn't like them
+                        var endpointId = endpoint.Id //TODO, need to take it off, then add it back on
                         delete endpoint.ApplicationId;
                         delete endpoint.CohortId;
                         delete endpoint.CreationDate;
                         delete endpoint.Id; 
                         pinpointEvents[projectID] = createPinpointEvent(preferenceCenterID, 'preferenceCenter_updateEndpoint', endpoint, {})
+                        endpoint.Id = endpointId //TODO: need to find another way to do this.
                       });
                       return processEvents(projectID, pinpointEvents)
                   }).then(function(){
