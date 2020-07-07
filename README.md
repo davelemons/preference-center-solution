@@ -21,10 +21,10 @@ The preference center allows for several querystring parameters:
 
 ## Customizing
 - All text, attributes, categories, and publications can be customized by modifying the metadata stored in DynamoDB.  See the [Annotated Metadata](annotated-metadata.json) to see a commented json file. [TODO: WIP]
-- Styles are best overridden by updating [main.css](static-files/css/main.css)
-- HTML can be modified by updating the Handlebars template in [index.html](static-files/index.html)
-- Javascript can be modified by updating [main.js](static-files/js/main.js)  Although, this should be done with caution.
-- Front-end development can be done locally, but you will want to upate the **Access-Control-Allow-Origin** header to '*' in API gateway and the Lambda function so you don't get into CORS trouble.  You will also need to temporarily hardcode the values at the top of [main.js](static-files/js/main.js) with appropriate values:
+- Styles are best overridden by updating [main.css](static-assets/css/main.css)
+- HTML can be modified by updating the Handlebars template in [index.html](static-assets/index.html)
+- Javascript can be modified by updating [main.js](static-assets/js/main.js)  Although, this should be done with caution.
+- Front-end development can be done locally, but you will want to upate the **Access-Control-Allow-Origin** header to '*' in API gateway and the Lambda function so you don't get into CORS trouble.  You will also need to temporarily hardcode the values at the top of [main.js](static-assets/js/main.js) with appropriate values:
 ```js
 const apiKey = '${API_KEY}'
 const baseURL = '${API_URL}'
