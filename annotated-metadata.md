@@ -1,16 +1,16 @@
 # [WIP]
 ```js
 {
-	"projectID": "1aa20d5ade5c4699a5df45ddad370a10", #[Required] - The PinpointProjectID associated with this preference center
-	"websiteURL": "http://aws.amazon.com", #[Optional] - The website url to link to when the Logo Image is clicked
+	"projectID": "1aa20d5ade5c4699a5df45ddad370a10", //[Required] - The PinpointProjectID associated with this preference center
+	"websiteURL": "http://aws.amazon.com", //[Optional] - The website url to link to when the Logo Image is clicked
 	"unsubscribe": {
-		"surveyQuestions": ["I no longer want to receive these emails", "I never signed up for this mailing list", "The emails are inappropriate", "The emails are spam and should be reported", "Other (fill in reason below)"], #[Optional] - A collection of responses to render in the Unsubscribe Survey.
-		"enabled": true, #[Optional] - If true will render Unsubscribe from all checkbox at bottom of page.
-		"surveyEnabled": true #[Optional] - If true will render an unsubscribe survey and record responses as custom pinpoint events
+		"surveyQuestions": ["I no longer want to receive these emails", "I never signed up for this mailing list", "The emails are inappropriate", "The emails are spam and should be reported", "Other (fill in reason below)"], //[Optional] - A collection of responses to render in the Unsubscribe Survey.
+		"enabled": true, //[Optional] - If true will render Unsubscribe from all checkbox at bottom of page.
+		"surveyEnabled": true //[Optional] - If true will render an unsubscribe survey and record responses as custom pinpoint events
 	},
-	"categories": [{ #[Optional] - A collection of Categories to display for publications.
-		"name": "Newsletters", #[Required] - The name of the category displayed as a header on the preference center
-		"description": "Check out our way cool newsletters!", #[Optional] - Will display a short description under the Category header above.
+	"categories": [{ //[Optional] - A collection of Categories to display for publications.
+		"name": "Newsletters", //[Required] - The name of the category displayed as a header on the preference center
+		"description": "Check out our way cool newsletters!", //[Optional] - Will display a short description under the Category header above.
 		"publications": [{
 			"name": "Runners Monthly",
 			"description": "<strong>Do you love running?</strong>  If so, you need to subscribe to this great newsletter with all things Running",
