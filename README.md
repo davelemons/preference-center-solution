@@ -33,6 +33,8 @@ const baseURL = '${API_URL}'
 ## TODO
 - [ ] Unit Tests
 - [ ] DynamoDB Trigger to update segments based on publications in the metadata
+- [ ] Unsubscribe Survey...maybe
+- [ ] Sample template with links to Optin, Manage Preferences for Existing User...maybe (these are already in outputs)
 - [ ] Lots of testing
 - [ ] REST API Swagger Docs
-- [ ] AWS Solution Tasks
+- [ ] AWS Solution Task
