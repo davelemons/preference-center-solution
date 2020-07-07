@@ -1,82 +1,49 @@
-## Functions
+<a name="Client side JS code for Preference Center Solution.  Handles fetching metadata and user data.module_  Will also validate inputs and submit updates to REST API"></a>
 
-<dl>
-<dt><a href="#getMetadata">getMetadata()</a> ⇒ <code>Object</code></dt>
-<dd><p>Retrieves all endpoints for a given UserID</p>
-</dd>
-<dt><a href="#loadMetadata">loadMetadata()</a></dt>
-<dd><p>Compiles handlebars template to populate preference center html</p>
-</dd>
-<dt><a href="#getEndpoints">getEndpoints(projectID, userID)</a> ⇒ <code>Array</code></dt>
-<dd><p>Retrieves all endpoints for a given UserID</p>
-</dd>
-<dt><a href="#loadUser">loadUser()</a></dt>
-<dd><p>Loads retrieved user data into preference center form</p>
-</dd>
-<dt><a href="#upsertEndpoints">upsertEndpoints()</a></dt>
-<dd><p>Orchestrates the process to read form data, show spinners, and call REST API</p>
-</dd>
-<dt><a href="#upsertUser">upsertUser()</a> ⇒ <code>Array</code></dt>
-<dd><p>Calls REST API to upsert a user</p>
-</dd>
-<dt><a href="#readFormData">readFormData()</a></dt>
-<dd><p>Reads form data and updates endpoints collection with user entered values</p>
-</dd>
-<dt><a href="#showLoader">showLoader()</a></dt>
-<dd><p>Shows initial full page loader</p>
-</dd>
-<dt><a href="#hideLoader">hideLoader()</a></dt>
-<dd><p>Hides initial full page loader</p>
-</dd>
-<dt><a href="#showProgress">showProgress()</a></dt>
-<dd><p>Shows ajax spinner during endpoint updates</p>
-</dd>
-<dt><a href="#hideProgress">hideProgress()</a></dt>
-<dd><p>Hides ajax spinner during endpoint updates</p>
-</dd>
-<dt><a href="#showForm">showForm()</a></dt>
-<dd><p>Shows the preference center form after generation</p>
-</dd>
-<dt><a href="#hideForm">hideForm()</a></dt>
-<dd><p>Hides the preference center form</p>
-</dd>
-<dt><a href="#showError">showError(msg)</a></dt>
-<dd><p>Shows the Error growl notification</p>
-</dd>
-<dt><a href="#showSuccess">showSuccess(msg)</a></dt>
-<dd><p>Shows the Success growl notification</p>
-</dd>
-<dt><a href="#getParameterByName">getParameterByName(name, url)</a> ⇒ <code>String</code></dt>
-<dd><p>Parses querystring for values</p>
-</dd>
-<dt><a href="#registerEvents">registerEvents()</a></dt>
-<dd><p>Register jquery events</p>
-</dd>
-<dt><a href="#registerHelpers">registerHelpers()</a></dt>
-<dd><p>Registers Handlebars Helpers</p>
-</dd>
-</dl>
+##   Will also validate inputs and submit updates to REST API
+**Version**: 1.0.0  
+**Author**: davelem  
 
-<a name="getMetadata"></a>
+* [  Will also validate inputs and submit updates to REST API](#Client side JS code for Preference Center Solution.  Handles fetching metadata and user data.module_  Will also validate inputs and submit updates to REST API)
+    * [~getMetadata()](#Client side JS code for Preference Center Solution.  Handles fetching metadata and user data.module_  Will also validate inputs and submit updates to REST API..getMetadata) ⇒ <code>Object</code>
+    * [~loadMetadata()](#Client side JS code for Preference Center Solution.  Handles fetching metadata and user data.module_  Will also validate inputs and submit updates to REST API..loadMetadata)
+    * [~getEndpoints(projectID, userID)](#Client side JS code for Preference Center Solution.  Handles fetching metadata and user data.module_  Will also validate inputs and submit updates to REST API..getEndpoints) ⇒ <code>Array</code>
+    * [~loadUser()](#Client side JS code for Preference Center Solution.  Handles fetching metadata and user data.module_  Will also validate inputs and submit updates to REST API..loadUser)
+    * [~upsertEndpoints()](#Client side JS code for Preference Center Solution.  Handles fetching metadata and user data.module_  Will also validate inputs and submit updates to REST API..upsertEndpoints)
+    * [~upsertUser()](#Client side JS code for Preference Center Solution.  Handles fetching metadata and user data.module_  Will also validate inputs and submit updates to REST API..upsertUser) ⇒ <code>Array</code>
+    * [~readFormData()](#Client side JS code for Preference Center Solution.  Handles fetching metadata and user data.module_  Will also validate inputs and submit updates to REST API..readFormData)
+    * [~showLoader()](#Client side JS code for Preference Center Solution.  Handles fetching metadata and user data.module_  Will also validate inputs and submit updates to REST API..showLoader)
+    * [~hideLoader()](#Client side JS code for Preference Center Solution.  Handles fetching metadata and user data.module_  Will also validate inputs and submit updates to REST API..hideLoader)
+    * [~showProgress()](#Client side JS code for Preference Center Solution.  Handles fetching metadata and user data.module_  Will also validate inputs and submit updates to REST API..showProgress)
+    * [~hideProgress()](#Client side JS code for Preference Center Solution.  Handles fetching metadata and user data.module_  Will also validate inputs and submit updates to REST API..hideProgress)
+    * [~showForm()](#Client side JS code for Preference Center Solution.  Handles fetching metadata and user data.module_  Will also validate inputs and submit updates to REST API..showForm)
+    * [~hideForm()](#Client side JS code for Preference Center Solution.  Handles fetching metadata and user data.module_  Will also validate inputs and submit updates to REST API..hideForm)
+    * [~showError(msg)](#Client side JS code for Preference Center Solution.  Handles fetching metadata and user data.module_  Will also validate inputs and submit updates to REST API..showError)
+    * [~showSuccess(msg)](#Client side JS code for Preference Center Solution.  Handles fetching metadata and user data.module_  Will also validate inputs and submit updates to REST API..showSuccess)
+    * [~getParameterByName(name, url)](#Client side JS code for Preference Center Solution.  Handles fetching metadata and user data.module_  Will also validate inputs and submit updates to REST API..getParameterByName) ⇒ <code>String</code>
+    * [~registerEvents()](#Client side JS code for Preference Center Solution.  Handles fetching metadata and user data.module_  Will also validate inputs and submit updates to REST API..registerEvents)
+    * [~registerHelpers()](#Client side JS code for Preference Center Solution.  Handles fetching metadata and user data.module_  Will also validate inputs and submit updates to REST API..registerHelpers)
 
-## getMetadata() ⇒ <code>Object</code>
+<a name="Client side JS code for Preference Center Solution.  Handles fetching metadata and user data.module_  Will also validate inputs and submit updates to REST API..getMetadata"></a>
+
+###   Will also validate inputs and submit updates to REST API~getMetadata() ⇒ <code>Object</code>
 Retrieves all endpoints for a given UserID
 
-**Kind**: global function  
+**Kind**: inner method of [<code>  Will also validate inputs and submit updates to REST API</code>](#Client side JS code for Preference Center Solution.  Handles fetching metadata and user data.module_  Will also validate inputs and submit updates to REST API)  
 **Returns**: <code>Object</code> - The preference center metadata stored in DynamoDB for the given projectID and preferenceCenterID. 
 If preferenceCenterID isn't specified then 'default' will be used.  
-<a name="loadMetadata"></a>
+<a name="Client side JS code for Preference Center Solution.  Handles fetching metadata and user data.module_  Will also validate inputs and submit updates to REST API..loadMetadata"></a>
 
-## loadMetadata()
+###   Will also validate inputs and submit updates to REST API~loadMetadata()
 Compiles handlebars template to populate preference center html
 
-**Kind**: global function  
-<a name="getEndpoints"></a>
+**Kind**: inner method of [<code>  Will also validate inputs and submit updates to REST API</code>](#Client side JS code for Preference Center Solution.  Handles fetching metadata and user data.module_  Will also validate inputs and submit updates to REST API)  
+<a name="Client side JS code for Preference Center Solution.  Handles fetching metadata and user data.module_  Will also validate inputs and submit updates to REST API..getEndpoints"></a>
 
-## getEndpoints(projectID, userID) ⇒ <code>Array</code>
+###   Will also validate inputs and submit updates to REST API~getEndpoints(projectID, userID) ⇒ <code>Array</code>
 Retrieves all endpoints for a given UserID
 
-**Kind**: global function  
+**Kind**: inner method of [<code>  Will also validate inputs and submit updates to REST API</code>](#Client side JS code for Preference Center Solution.  Handles fetching metadata and user data.module_  Will also validate inputs and submit updates to REST API)  
 **Returns**: <code>Array</code> - Collection of user endpoints: https://docs.aws.amazon.com/pinpoint/latest/apireference/apps-application-id-users-user-id.html#apps-application-id-users-user-id-response-body-endpointsresponse-example  
 
 | Param | Type | Description |
@@ -84,95 +51,95 @@ Retrieves all endpoints for a given UserID
 | projectID | <code>String</code> | The pinpoint project or application id |
 | userID | <code>String</code> | The User.UserID to retrieve |
 
-<a name="loadUser"></a>
+<a name="Client side JS code for Preference Center Solution.  Handles fetching metadata and user data.module_  Will also validate inputs and submit updates to REST API..loadUser"></a>
 
-## loadUser()
+###   Will also validate inputs and submit updates to REST API~loadUser()
 Loads retrieved user data into preference center form
 
-**Kind**: global function  
-<a name="upsertEndpoints"></a>
+**Kind**: inner method of [<code>  Will also validate inputs and submit updates to REST API</code>](#Client side JS code for Preference Center Solution.  Handles fetching metadata and user data.module_  Will also validate inputs and submit updates to REST API)  
+<a name="Client side JS code for Preference Center Solution.  Handles fetching metadata and user data.module_  Will also validate inputs and submit updates to REST API..upsertEndpoints"></a>
 
-## upsertEndpoints()
+###   Will also validate inputs and submit updates to REST API~upsertEndpoints()
 Orchestrates the process to read form data, show spinners, and call REST API
 
-**Kind**: global function  
-<a name="upsertUser"></a>
+**Kind**: inner method of [<code>  Will also validate inputs and submit updates to REST API</code>](#Client side JS code for Preference Center Solution.  Handles fetching metadata and user data.module_  Will also validate inputs and submit updates to REST API)  
+<a name="Client side JS code for Preference Center Solution.  Handles fetching metadata and user data.module_  Will also validate inputs and submit updates to REST API..upsertUser"></a>
 
-## upsertUser() ⇒ <code>Array</code>
+###   Will also validate inputs and submit updates to REST API~upsertUser() ⇒ <code>Array</code>
 Calls REST API to upsert a user
 
-**Kind**: global function  
+**Kind**: inner method of [<code>  Will also validate inputs and submit updates to REST API</code>](#Client side JS code for Preference Center Solution.  Handles fetching metadata and user data.module_  Will also validate inputs and submit updates to REST API)  
 **Returns**: <code>Array</code> - Collection of updated user endpoints with generated userIDs and endpointIDs for new users.  
-<a name="readFormData"></a>
+<a name="Client side JS code for Preference Center Solution.  Handles fetching metadata and user data.module_  Will also validate inputs and submit updates to REST API..readFormData"></a>
 
-## readFormData()
+###   Will also validate inputs and submit updates to REST API~readFormData()
 Reads form data and updates endpoints collection with user entered values
 
-**Kind**: global function  
-<a name="showLoader"></a>
+**Kind**: inner method of [<code>  Will also validate inputs and submit updates to REST API</code>](#Client side JS code for Preference Center Solution.  Handles fetching metadata and user data.module_  Will also validate inputs and submit updates to REST API)  
+<a name="Client side JS code for Preference Center Solution.  Handles fetching metadata and user data.module_  Will also validate inputs and submit updates to REST API..showLoader"></a>
 
-## showLoader()
+###   Will also validate inputs and submit updates to REST API~showLoader()
 Shows initial full page loader
 
-**Kind**: global function  
-<a name="hideLoader"></a>
+**Kind**: inner method of [<code>  Will also validate inputs and submit updates to REST API</code>](#Client side JS code for Preference Center Solution.  Handles fetching metadata and user data.module_  Will also validate inputs and submit updates to REST API)  
+<a name="Client side JS code for Preference Center Solution.  Handles fetching metadata and user data.module_  Will also validate inputs and submit updates to REST API..hideLoader"></a>
 
-## hideLoader()
+###   Will also validate inputs and submit updates to REST API~hideLoader()
 Hides initial full page loader
 
-**Kind**: global function  
-<a name="showProgress"></a>
+**Kind**: inner method of [<code>  Will also validate inputs and submit updates to REST API</code>](#Client side JS code for Preference Center Solution.  Handles fetching metadata and user data.module_  Will also validate inputs and submit updates to REST API)  
+<a name="Client side JS code for Preference Center Solution.  Handles fetching metadata and user data.module_  Will also validate inputs and submit updates to REST API..showProgress"></a>
 
-## showProgress()
+###   Will also validate inputs and submit updates to REST API~showProgress()
 Shows ajax spinner during endpoint updates
 
-**Kind**: global function  
-<a name="hideProgress"></a>
+**Kind**: inner method of [<code>  Will also validate inputs and submit updates to REST API</code>](#Client side JS code for Preference Center Solution.  Handles fetching metadata and user data.module_  Will also validate inputs and submit updates to REST API)  
+<a name="Client side JS code for Preference Center Solution.  Handles fetching metadata and user data.module_  Will also validate inputs and submit updates to REST API..hideProgress"></a>
 
-## hideProgress()
+###   Will also validate inputs and submit updates to REST API~hideProgress()
 Hides ajax spinner during endpoint updates
 
-**Kind**: global function  
-<a name="showForm"></a>
+**Kind**: inner method of [<code>  Will also validate inputs and submit updates to REST API</code>](#Client side JS code for Preference Center Solution.  Handles fetching metadata and user data.module_  Will also validate inputs and submit updates to REST API)  
+<a name="Client side JS code for Preference Center Solution.  Handles fetching metadata and user data.module_  Will also validate inputs and submit updates to REST API..showForm"></a>
 
-## showForm()
+###   Will also validate inputs and submit updates to REST API~showForm()
 Shows the preference center form after generation
 
-**Kind**: global function  
-<a name="hideForm"></a>
+**Kind**: inner method of [<code>  Will also validate inputs and submit updates to REST API</code>](#Client side JS code for Preference Center Solution.  Handles fetching metadata and user data.module_  Will also validate inputs and submit updates to REST API)  
+<a name="Client side JS code for Preference Center Solution.  Handles fetching metadata and user data.module_  Will also validate inputs and submit updates to REST API..hideForm"></a>
 
-## hideForm()
+###   Will also validate inputs and submit updates to REST API~hideForm()
 Hides the preference center form
 
-**Kind**: global function  
-<a name="showError"></a>
+**Kind**: inner method of [<code>  Will also validate inputs and submit updates to REST API</code>](#Client side JS code for Preference Center Solution.  Handles fetching metadata and user data.module_  Will also validate inputs and submit updates to REST API)  
+<a name="Client side JS code for Preference Center Solution.  Handles fetching metadata and user data.module_  Will also validate inputs and submit updates to REST API..showError"></a>
 
-## showError(msg)
+###   Will also validate inputs and submit updates to REST API~showError(msg)
 Shows the Error growl notification
 
-**Kind**: global function  
+**Kind**: inner method of [<code>  Will also validate inputs and submit updates to REST API</code>](#Client side JS code for Preference Center Solution.  Handles fetching metadata and user data.module_  Will also validate inputs and submit updates to REST API)  
 
 | Param | Type | Description |
 | --- | --- | --- |
 | msg | <code>String</code> | The message to display in the notification |
 
-<a name="showSuccess"></a>
+<a name="Client side JS code for Preference Center Solution.  Handles fetching metadata and user data.module_  Will also validate inputs and submit updates to REST API..showSuccess"></a>
 
-## showSuccess(msg)
+###   Will also validate inputs and submit updates to REST API~showSuccess(msg)
 Shows the Success growl notification
 
-**Kind**: global function  
+**Kind**: inner method of [<code>  Will also validate inputs and submit updates to REST API</code>](#Client side JS code for Preference Center Solution.  Handles fetching metadata and user data.module_  Will also validate inputs and submit updates to REST API)  
 
 | Param | Type | Description |
 | --- | --- | --- |
 | msg | <code>String</code> | The message to display in the notification |
 
-<a name="getParameterByName"></a>
+<a name="Client side JS code for Preference Center Solution.  Handles fetching metadata and user data.module_  Will also validate inputs and submit updates to REST API..getParameterByName"></a>
 
-## getParameterByName(name, url) ⇒ <code>String</code>
+###   Will also validate inputs and submit updates to REST API~getParameterByName(name, url) ⇒ <code>String</code>
 Parses querystring for values
 
-**Kind**: global function  
+**Kind**: inner method of [<code>  Will also validate inputs and submit updates to REST API</code>](#Client side JS code for Preference Center Solution.  Handles fetching metadata and user data.module_  Will also validate inputs and submit updates to REST API)  
 **Returns**: <code>String</code> - The querystring value  
 
 | Param | Type | Description |
@@ -180,15 +147,15 @@ Parses querystring for values
 | name | <code>String</code> | The querystring value to retrieve |
 | url | <code>String</code> | The url to search |
 
-<a name="registerEvents"></a>
+<a name="Client side JS code for Preference Center Solution.  Handles fetching metadata and user data.module_  Will also validate inputs and submit updates to REST API..registerEvents"></a>
 
-## registerEvents()
+###   Will also validate inputs and submit updates to REST API~registerEvents()
 Register jquery events
 
-**Kind**: global function  
-<a name="registerHelpers"></a>
+**Kind**: inner method of [<code>  Will also validate inputs and submit updates to REST API</code>](#Client side JS code for Preference Center Solution.  Handles fetching metadata and user data.module_  Will also validate inputs and submit updates to REST API)  
+<a name="Client side JS code for Preference Center Solution.  Handles fetching metadata and user data.module_  Will also validate inputs and submit updates to REST API..registerHelpers"></a>
 
-## registerHelpers()
+###   Will also validate inputs and submit updates to REST API~registerHelpers()
 Registers Handlebars Helpers
 
-**Kind**: global function  
+**Kind**: inner method of [<code>  Will also validate inputs and submit updates to REST API</code>](#Client side JS code for Preference Center Solution.  Handles fetching metadata and user data.module_  Will also validate inputs and submit updates to REST API)  

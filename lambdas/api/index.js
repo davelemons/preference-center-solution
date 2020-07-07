@@ -1,3 +1,8 @@
+/**
+ * @module Lambda Handler for the Preference Center REST API
+ * @author davelem
+ * @version 1.0.0
+ */
 const METADATA_TABLE = process.env.METADATA_TABLE;
 const CORS_DOMAIN = process.env.CORS_DOMAIN;
 const AWS = require('aws-sdk');
@@ -10,8 +15,17 @@ var xss = require("xss");
 const xssOptions = {}; // Specifiy Custom XSS Options here
 const sanitizer = new xss.FilterXSS(xssOptions);
 
-/**
- * Helper Methods
+/*****************
+ * Helper Functions
+ *****************/
+
+ /**
+ * Formats a custom Pinpoint event
+ * @param  {String} preferenceCenterID The preference center id
+ * @param  {String} eventType A pinpoint event type
+ * @param  {Object} endpoint The pinpoint project or application id
+ * @param  {Object} attributes Custom attributes to add to pinpoint event
+ * @return {Object} Returns a pinpoint custom event object
  */
 function createPinpointEvent (preferenceCenterID, eventType, endpoint, attributes) {
   if(!endpoint) endpoint = {};
@@ -30,6 +44,14 @@ function createPinpointEvent (preferenceCenterID, eventType, endpoint, attribute
   return customEvent
 }
 
+ /**
+ * Writes a batch of custom pinpoint events
+ * @param  {String} projectId The pinpoint application/project id to associate the events with
+ * @param  {Array} events Collection of custom events to add
+ * @param  {Object} endpoint The pinpoint project or application id
+ * @param  {Object} attributes Custom attributes to add to pinpoint event
+ * @return {Promise} 
+ */
 function processEvents (projectId, events) {
   return new Promise((resolve) => {
     var params = {
@@ -50,6 +72,12 @@ function processEvents (projectId, events) {
   })
 }
 
+ /**
+ * Writes a batch of custom pinpoint events
+ * @param  {String} projectId The pinpoint application/project id to associate the events with
+ * @param  {String} preferenceCenterID The preference center id
+ * @return {Promise} A Promise object that contatins the metadata retrieved from DynamoDB
+ */
 function getMetadata(projectID, preferenceCenterID) {
     return new Promise((resolve, reject) => {        
         var params = {
@@ -73,6 +101,12 @@ function getMetadata(projectID, preferenceCenterID) {
     });
 }
 
+ /**
+ * Writes a batch of custom pinpoint events
+ * @param  {String} projectId The pinpoint application/project id to associate the events with
+ * @param  {String} userID The User.UserID to retrieve
+ * @return {Promise} A Promise object that contatins a collection of user endpoints
+ */
 function getUserEndpoints(projectID, userID) {
     return new Promise((resolve, reject) => {
 
@@ -90,6 +124,12 @@ function getUserEndpoints(projectID, userID) {
     });
 }
 
+ /**
+ * Upserts a collection of endpoints synchronously to avoid hammering the API
+ * @param  {String} projectId The pinpoint application/project id to associate the events with
+ * @param  {Object[]} endpoints The endpoints to upsert
+ * @return {Promise} A Promise object that returns the User.ID.  If it was a new user then this will contain the UUID that was generated
+ */
 function upsertEndpoints(projectID, endpoints) {
   return new Promise((resolve, reject) => {
 
@@ -112,6 +152,14 @@ function upsertEndpoints(projectID, endpoints) {
 
   });
 }
+
+ /**
+ * Writes a batch of custom pinpoint events
+ * @param  {String} projectId The pinpoint application/project id to associate the events with
+ * @param  {String} [userID=UUID] - userID The User.UserID to retrieve will default to new UUID if not specified
+ * @param  {Object[]} endpoints The endpoints to upsert
+ * @return {Promise} A Promise object that contatins a collection of user endpoints
+ */
 function upsertEndpoint(projectID, userID, endpoint) {
   return new Promise((resolve, reject) => {
 
@@ -148,8 +196,15 @@ function upsertEndpoint(projectID, userID, endpoint) {
   });
 }
 
-/**
- * TODO: Description
+/*****************
+ * Main Lambda Function
+ *****************/
+
+ /**
+ * Main Lambda Handler...Start Here.
+ * @param  {Object} event The Lambda event object
+ * @param  {Object} context The Lambda Context Object
+ * @param  {Object[]} callback The lambda callback method to execute when the function completes
  */
 exports.handler =  (event, context, callback) => {
     console.log('Received event:', JSON.stringify(event, null, 2));
