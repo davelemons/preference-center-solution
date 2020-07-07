@@ -1,4 +1,4 @@
-/*
+```
 {
 	"projectID": "1aa20d5ade5c4699a5df45ddad370a10", #[Required] - The PinpointProjectID associated with this preference center
 	"websiteURL": "http://aws.amazon.com", #[Optional] - The website url to link to when the Logo Image is clicked
@@ -162,4 +162,4 @@
 	"description": "Preference center for Accent Athletics",
 	"preferenceCenterID": "default"
 }
-*/
+```

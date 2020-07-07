@@ -20,7 +20,7 @@ The preference center allows for several querystring parameters:
 - **uid** - [Optional]  User ID: The User.UserID to retrieve attribute and publication information for.  If not specified, the form will allow for the opt-in of end-users.  It will generate a UUID for any User and Endpoint IDs.
 
 ## Customizing
-- All text, attributes, categories, and publications can be customized by modifying the metadata stored in DynamoDB.  See the [Annotated Metadata](annotated-metadata.json) to see a commented json file. [TODO: WIP]
+- All text, attributes, categories, and publications can be customized by modifying the metadata stored in DynamoDB.  See the [Annotated Metadata](annotated-metadata.md) to see a commented json file. [TODO: WIP]
 - Styles are best overridden by updating [main.css](static-assets/css/main.css)
 - HTML can be modified by updating the Handlebars template in [index.html](static-assets/index.html)
 - Javascript can be modified by updating [main.js](static-assets/js/main.js)  Although, this should be done with caution.
