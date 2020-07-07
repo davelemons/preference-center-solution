@@ -6,7 +6,7 @@ Cloudformation template to deploy a fully functional Preference Center to collec
 - [jsdoc-to-markdown](https://github.com/jsdoc2md/jsdoc-to-markdown): `npm install -g jsdoc-to-markdown`
 - [AWS Cloudformation CLI](https://docs.aws.amazon.com/cloudformation-cli/latest/userguide/what-is-cloudformation-cli.html)
 - Access to an AWS account Isengard and ability to connect with AWS CLI.  Execute `aws s3 ls` to verify connection
-- An existing S3 bucket to package code to: `aws mb [unique bucket name]`
+- An existing S3 bucket to package code to: `aws s3 mb [unique bucket name]`
 
 ## Getting Started
 - Clone this repo: `git clone https://github.com/davelemons/preference-center-solution.git && cd preference-center-solution`
