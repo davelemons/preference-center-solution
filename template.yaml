@@ -1,14 +1,49 @@
+# Preference Center Solution
+#
+# template for preference-center
+# **DO NOT DELETE**
+#
+# author: davelem@
 AWSTemplateFormatVersion: 2010-09-09
 Transform: 'AWS::Serverless-2016-10-31'
-Description: Pinpoint Preference Center
+Description: Automaticaly provision and configure the AWS services necessary to host a Preference Center that allows end users to manage their communiction preferences.
 
 Parameters:
   PinpointProjectId:
-    Type: "String"
-    AllowedPattern: "^[a-z0-9]+$"
-    Default: "cba5adbc9f6a40da8d725619fff55ab2"
+    Type: String
+    Description: Amazon Pinpoint Project ID if one already exists, leave blank to create one.
+    AllowedPattern: ^[a-zA-Z0-9]*$
+    Default: "8822cc12c3b04a6ebd81f27c96b3aa64" #TODO: Remove after testing
+  PinpointProjectName:
+    Type: String
+    Default: "My Pinpoint Project with a sample Preference Center"
+    Description: "If no PinpointProjectId provided, name to be used to create the Pinpoint project"
+  PreferenceCenterName:
+    Type: String
+    Default: "Preference Center"
+    Description: "The name of the Preference Center to be used in the <title> html attribute"
+  PrimaryCSSColor:
+    Type: String
+    Default: "#862389"
+    AllowedPattern: "#([a-f]|[A-F]|[0-9]){3}(([a-f]|[A-F]|[0-9]){3})?\\b"
+    Description: "The primary css color. Primarily used for button colors"
+  SecondaryCSSColor:
+    Type: String
+    Default: "#862389"
+    AllowedPattern: "#([a-f]|[A-F]|[0-9]){3}(([a-f]|[A-F]|[0-9]){3})?\\b"
+    Description: "The secondary css color. Primarily used for borders and accent colors"
+
+Conditions:
+  NeedsPinpointProjectId: !Equals ['', !Ref PinpointProjectId]
 
 Resources:
+
+  PinpointProject:
+    Type: AWS::Pinpoint::App
+    Condition: NeedsPinpointProjectId
+    DeletionPolicy: Retain
+    Properties:
+      Name: !Ref PinpointProjectName
 
   ################
   # Lambda Deployer that pushes static files to S3
@@ -41,7 +76,9 @@ Resources:
     Type: AWS::Serverless::Function
     Properties:
       Layers: 
-        - !Ref S3DeploymentLayer
+        - !Ref "S3DeploymentLayer"
+      Description: "Copies static files to S3 during cloudformation deployment"
+      FunctionName: "PreferenceCenterCopyStaticFiles"
       CodeUri: static-assets/
       AutoPublishAlias: live
       Runtime: python3.6 
@@ -49,7 +86,7 @@ Resources:
       Timeout: 600
       Policies:
         - S3FullAccessPolicy:
-            BucketName: !Ref StaticFiles
+            BucketName: !Ref "StaticFiles"
 
   DeploymentResource:
     Type: AWS::CloudFormation::CustomResource
@@ -60,11 +97,11 @@ Resources:
     Properties:
       ServiceToken: !GetAtt "PCDeployer.Arn"
       Version: !Ref "PCDeployer.Version"
-      TargetBucket: !Ref StaticFiles
+      TargetBucket: !Ref "StaticFiles"
       Substitutions:
         FilePattern: "**/*"
         Values:
-          PAGE_TITLE: 'My Cool Preference Center'
+          PAGE_TITLE: !Ref "PreferenceCenterName"
           API_KEY: !GetAtt "SetInitialValues.apiKey"
           API_URL: !Sub "https://${RestAPI}.execute-api.${AWS::Region}.amazonaws.com/prod/preferencecenter/"
       Acl: 'private'
@@ -116,21 +153,24 @@ Resources:
             - Effect: Allow
               Action:
               - dynamodb:PutItem 
-              Resource: "*" #TODO: Lock this down
+              Resource: !GetAtt "DynamoDBTable.Arn" 
             - Effect: Allow
               Action: 
               - apigateway:GET 
-              Resource: "*" #TODO: Lock this down
+              Resource: "*" #TODO: Lock this down if possible
             - Effect: Allow
               Action:
               - "logs:CreateLogGroup"
               - "logs:CreateLogStream"
               - "logs:PutLogEvents"
-              Resource: "*"
+              Resource: 
+                - !Sub "arn:aws:logs:${AWS::Region}:${AWS::AccountId}:log-group:/aws/lambda/PreferenceCenterInitialValues:*"
 
   BaseDataInitFunction:
     Type: AWS::Lambda::Function
     Properties:
+      Description: "Sets default values during initial cloudformation deployment"
+      FunctionName: "PreferenceCenterInitialValues"
       Code: lambdas/set-initial-values 
       Handler: index.handler
       Role:
@@ -148,8 +188,10 @@ Resources:
          Fn::GetAtt: [ BaseDataInitFunction , "Arn" ]
       DynamoTableName:
         Ref: DynamoDBTable
-      PinpointProjectID: 
-        Ref: PinpointProjectId
+      PinpointProjectID: !If
+        - NeedsPinpointProjectId
+        - !Ref PinpointProject
+        - !Ref PinpointProjectId
       ApiKeyID: 
         Ref: ApiKey
 
@@ -158,6 +200,8 @@ Resources:
   ################
   RestAPI:
     Type: AWS::ApiGateway::RestApi
+    DependsOn:
+    - CloudFrontDistribution
     Properties:
       Name: Preference Center API
       Description: REST API for Preference Center Functions
@@ -166,8 +210,8 @@ Resources:
       Body: 
         swagger: "2.0"
         info:
-          description: "Created by AWS Lambda"
-          version: "2020-07-01T18:25:55Z"
+          description: "REST API for Preference Center Functions"
+          version: "1.0.0"
           title: "preferencecenter"
         schemes:
         - "https"
@@ -199,7 +243,9 @@ Resources:
                   default:
                     statusCode: "200"
                     responseParameters:
-                      method.response.header.Access-Control-Allow-Origin: "'*'" #TODO: Lock this down
+                      method.response.header.Access-Control-Allow-Origin: !Sub 
+                        - "'https://${corsDomain}'"
+                        - corsDomain: !GetAtt CloudFrontDistribution.DomainName
                 passthroughBehavior: "when_no_match"
                 httpMethod: "POST"
                 contentHandling: "CONVERT_TO_TEXT"
@@ -228,7 +274,9 @@ Resources:
                     responseParameters:
                       method.response.header.Access-Control-Allow-Methods: "'GET,OPTIONS'"
                       method.response.header.Access-Control-Allow-Headers: "'Content-Type,X-Amz-Date,Authorization,X-Api-Key,X-Amz-Security-Token'"
-                      method.response.header.Access-Control-Allow-Origin: "'*'" #TODO: Lock this down
+                      method.response.header.Access-Control-Allow-Origin: !Sub 
+                        - "'https://${corsDomain}'"
+                        - corsDomain: !GetAtt CloudFrontDistribution.DomainName
                 requestTemplates:
                   application/json: "{\"statusCode\": 200}"
                 passthroughBehavior: "when_no_match"
@@ -260,7 +308,9 @@ Resources:
                   default:
                     statusCode: "200"
                     responseParameters:
-                      method.response.header.Access-Control-Allow-Origin: "'*'" #TODO: Lock this down
+                      method.response.header.Access-Control-Allow-Origin: !Sub 
+                        - "'https://${corsDomain}'"
+                        - corsDomain: !GetAtt CloudFrontDistribution.DomainName
                 passthroughBehavior: "when_no_match"
                 httpMethod: "POST"
                 contentHandling: "CONVERT_TO_TEXT"
@@ -291,7 +341,9 @@ Resources:
                   default:
                     statusCode: "200"
                     responseParameters:
-                      method.response.header.Access-Control-Allow-Origin: "'*'" #TODO: Lock this down
+                      method.response.header.Access-Control-Allow-Origin: !Sub 
+                        - "'https://${corsDomain}'"
+                        - corsDomain: !GetAtt CloudFrontDistribution.DomainName
                 passthroughBehavior: "when_no_match"
                 httpMethod: "POST"
                 contentHandling: "CONVERT_TO_TEXT"
@@ -320,7 +372,9 @@ Resources:
                     responseParameters:
                       method.response.header.Access-Control-Allow-Methods: "'GET,OPTIONS,PUT'"
                       method.response.header.Access-Control-Allow-Headers: "'Content-Type,X-Amz-Date,Authorization,X-Api-Key,X-Amz-Security-Token'"
-                      method.response.header.Access-Control-Allow-Origin: "'*'" #TODO: Lock this down
+                      method.response.header.Access-Control-Allow-Origin: !Sub 
+                        - "'https://${corsDomain}'"
+                        - corsDomain: !GetAtt CloudFrontDistribution.DomainName
                 requestTemplates:
                   application/json: "{\"statusCode\": 200}"
                 passthroughBehavior: "when_no_match"
@@ -356,7 +410,9 @@ Resources:
                   default:
                     statusCode: "200"
                     responseParameters:
-                      method.response.header.Access-Control-Allow-Origin: "'*'" #TODO: Lock this down
+                      method.response.header.Access-Control-Allow-Origin: !Sub 
+                        - "'https://${corsDomain}'"
+                        - corsDomain: !GetAtt CloudFrontDistribution.DomainName
                 passthroughBehavior: "when_no_match"
                 httpMethod: "POST"
                 contentHandling: "CONVERT_TO_TEXT"
@@ -385,7 +441,9 @@ Resources:
                     responseParameters:
                       method.response.header.Access-Control-Allow-Methods: "'GET,OPTIONS'"
                       method.response.header.Access-Control-Allow-Headers: "'Content-Type,X-Amz-Date,Authorization,X-Api-Key,X-Amz-Security-Token'"
-                      method.response.header.Access-Control-Allow-Origin: "'*'" #TODO: Lock this down
+                      method.response.header.Access-Control-Allow-Origin: !Sub 
+                        - "'https://${corsDomain}'"
+                        - corsDomain: !GetAtt CloudFrontDistribution.DomainName
                 requestTemplates:
                   application/json: "{\"statusCode\": 200}"
                 passthroughBehavior: "when_no_match"
@@ -456,6 +514,9 @@ Resources:
       KeyType: API_KEY
       UsagePlanId: !Ref UsagePlan
 
+  ################
+  # Preference Center Lambda Function
+  ################
   lambdaFunction:
     Type: "AWS::Lambda::Function"
     Properties:
@@ -469,11 +530,13 @@ Resources:
       Timeout: 10
       Environment:  
         Variables:
-          CORS_DOMAIN: !GetAtt CloudFrontDistribution.DomainName
+          CORS_DOMAIN: !Sub 
+            - "https://${corsDomain}"
+            - corsDomain: !GetAtt CloudFrontDistribution.DomainName
           METADATA_TABLE: !Ref DynamoDBTable
           REGION: !Ref "AWS::Region"
 
-  # TODO: Can I combine these?
+  # Lambda Invoke Permissions to API Gateway
   lambdaApiGatewayInvokeMetadataGet:
     Type: "AWS::Lambda::Permission"
     DependsOn:
@@ -558,7 +621,7 @@ Resources:
                   - "mobiletargeting:GetUserEndpoints"
                 Effect: "Allow"
                 Resource:
-                  - !Sub "arn:aws:mobiletargeting:${AWS::Region}:${AWS::AccountId}:apps/*"
+                  - !Sub "arn:aws:mobiletargeting:${AWS::Region}:${AWS::AccountId}:apps/*" #This is a bit permissive, but we want this lambda to handle preference centers for multiple projects/applications
           PolicyName: "pinpoint"
 
   lambdaLogGroup:
@@ -568,7 +631,7 @@ Resources:
       RetentionInDays: 90
 
   ################
-  # CloudFront
+  # CloudFront Distribution
   ################
   ReadPolicy:
     Type: 'AWS::S3::BucketPolicy'
@@ -642,5 +705,14 @@ Outputs:
   PreferenceCenterOptInURL:
     Description: 'Use this link to opt users into communications'
     Value: !Sub
-      - 'https://${CFDomain}/index.html?pid=${PinpointProjectId}'
+      - 'https://${CFDomain}/index.html?pid=${ProjectID}'
+      - CFDomain: !GetAtt CloudFrontDistribution.DomainName
+        ProjectID: !If
+        - NeedsPinpointProjectId
+        - !Ref PinpointProject
+        - !Ref PinpointProjectId
+  PreferenceCenterPinpointTemplateURL:
+    Description: 'Add this code to your pinpoint template to allow users to manage their preferences'
+    Value: !Sub
+      - '<a href="https://${CFDomain}/index.html?pid={{ApplicationId}}&uid={{User.UserId}}">Manage Preferences</a>'
       - CFDomain: !GetAtt CloudFrontDistribution.DomainName

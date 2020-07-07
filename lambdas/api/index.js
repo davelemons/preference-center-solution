@@ -159,7 +159,7 @@ exports.handler =  (event, context, callback) => {
         body: err ? err.message : JSON.stringify(res),
         headers: {
             "Content-Type": "application/json",
-            "Access-Control-Allow-Origin": `https://${CORS_DOMAIN}`, // Required for CORS support to work
+            "Access-Control-Allow-Origin": CORS_DOMAIN, // Required for CORS support to work
             "Access-Control-Allow-Credentials": true // Required for cookies, authorization headers with HTTPS
         },
     });

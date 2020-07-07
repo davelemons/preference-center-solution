@@ -1,4 +1,32 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <title>JSDoc: Source: main.js</title>
 
+    <script src="scripts/prettify/prettify.js"> </script>
+    <script src="scripts/prettify/lang-css.js"> </script>
+    <!--[if lt IE 9]>
+      <script src="//html5shiv.googlecode.com/svn/trunk/html5.js"></script>
+    <![endif]-->
+    <link type="text/css" rel="stylesheet" href="styles/prettify-tomorrow.css">
+    <link type="text/css" rel="stylesheet" href="styles/jsdoc-default.css">
+</head>
+
+<body>
+
+<div id="main">
+
+    <h1 class="page-title">Source: main.js</h1>
+
+    
+
+
+
+    
+    <section>
+        <article>
+            <pre class="prettyprint source linenums"><code>
 const apiKey = '${API_KEY}'
 const baseURL = '${API_URL}'
 const projectID = getParameterByName('pid') 
@@ -304,7 +332,7 @@ function readFormData () {
   $('.user-attribute-radio').each(function (attribute, index) {
     for (const property in tmpAttributes) {
       if ($(this).attr('name') === property) {
-        if ($(this).prop('checked') && tmpAttributes[property].indexOf($(this).val()) < 0) {
+        if ($(this).prop('checked') &amp;&amp; tmpAttributes[property].indexOf($(this).val()) &lt; 0) {
           tmpAttributes[property].push($(this).val())
         }
       }
@@ -391,7 +419,7 @@ function hideForm () {
  * @param  {String} msg The message to display in the notification
  */
 function showError (msg) {
-  $('.error-notification').fadeIn().html('<i class="fas fa-exclamation-circle"></i> ' + msg)
+  $('.error-notification').fadeIn().html('&lt;i class="fas fa-exclamation-circle">&lt;/i> ' + msg)
   setTimeout(function () {
     $('.error-notification').fadeOut()
   }, 4000)
@@ -402,7 +430,7 @@ function showError (msg) {
  * @param  {String} msg The message to display in the notification
  */
 function showSuccess (msg) {
-  $('.success-notification').fadeIn().html('<i class="far fa-check-circle"></i> ' + msg)
+  $('.success-notification').fadeIn().html('&lt;i class="far fa-check-circle">&lt;/i> ' + msg)
   setTimeout(function () {
     $('.success-notification').fadeOut()
   }, 4000)
@@ -416,8 +444,8 @@ function showSuccess (msg) {
  */
 function getParameterByName (name, url) {
   if (!url) url = window.location.href
-  name = name.replace(/[[\]]/g, '\\$&')
-  var regex = new RegExp('[?&]' + name + '(=([^&#]*)|&|#|$)')
+  name = name.replace(/[[\]]/g, '\\$&amp;')
+  var regex = new RegExp('[?&amp;]' + name + '(=([^&amp;#]*)|&amp;|#|$)')
   var results = regex.exec(url)
   if (!results) return ''
   if (!results[2]) return ''
@@ -455,7 +483,7 @@ function registerHelpers () {
     var html = ''
     var required = ''
 
-    if (this.required && typeof (this.required) === 'string') {
+    if (this.required &amp;&amp; typeof (this.required) === 'string') {
       required = 'data-validetta="' + this.required + '"'
     } else if (this.required) {
       required = 'data-validetta="required"'
@@ -463,30 +491,53 @@ function registerHelpers () {
 
     switch (this.inputType) {
       case 'select':
-        html = '<select class="user-attribute-input" data-attribute="' + this.id + '" id="select_' + this.id + '">'
+        html = '&lt;select class="user-attribute-input" data-attribute="' + this.id + '" id="select_' + this.id + '">'
         this.options.forEach((option, index) => {
-          html += '<option value="' + option.value + '">' + option.label + '</option>'
+          html += '&lt;option value="' + option.value + '">' + option.label + '&lt;/option>'
         })
-        html += '</select>'
+        html += '&lt;/select>'
         return new Handlebars.SafeString(html)
       case 'checkbox':
-        html = '<span class="checkbox-container">'
+        html = '&lt;span class="checkbox-container">'
         this.options.forEach((option, index) => {
-          html += '<input type="checkbox" class="user-attribute-checkbox" data-attribute="' + this.id + '" id="checkbox_' + this.id + '_' + index + '" name="' + this.id + '" value="' + option.value + '" ' + required + '> <label class="checkbox-label" for="checkbox_' + this.id + '_' + index + '">' + option.label + '</label>'
+          html += '&lt;input type="checkbox" class="user-attribute-checkbox" data-attribute="' + this.id + '" id="checkbox_' + this.id + '_' + index + '" name="' + this.id + '" value="' + option.value + '" ' + required + '> &lt;label class="checkbox-label" for="checkbox_' + this.id + '_' + index + '">' + option.label + '&lt;/label>'
         })
-        html += '</span>'
+        html += '&lt;/span>'
         return new Handlebars.SafeString(html)
       case 'radio':
-        html = '<span class="radio-container">'
+        html = '&lt;span class="radio-container">'
         this.options.forEach((option, index) => {
-          html += '<input type="radio" class="user-attribute-radio" data-attribute="' + this.id + '" id="radio_' + this.id + '_' + index + '" name="' + this.id + '" value="' + option.value + '" ' + required + '> <label class="radio-label" for="radio_' + this.id + '_' + index + '">' + option.label + '</label>'
+          html += '&lt;input type="radio" class="user-attribute-radio" data-attribute="' + this.id + '" id="radio_' + this.id + '_' + index + '" name="' + this.id + '" value="' + option.value + '" ' + required + '> &lt;label class="radio-label" for="radio_' + this.id + '_' + index + '">' + option.label + '&lt;/label>'
         })
-        html += '</span>'
+        html += '&lt;/span>'
         return new Handlebars.SafeString(html)
       default:
         inputMask = this.inputMask ? 'data-inputmask="' + this.inputMask + '"' : ''
-        html = '<input class="user-' + type + '-input" type="text" data-attribute="' + this.id + '" placeholder="' + this.inputPlaceholder + '" id="' + type + '_' + this.id + '_' + options.data.index + '" ' + required + ' ' + inputMask + '/>'
+        html = '&lt;input class="user-' + type + '-input" type="text" data-attribute="' + this.id + '" placeholder="' + this.inputPlaceholder + '" id="' + type + '_' + this.id + '_' + options.data.index + '" ' + required + ' ' + inputMask + '/>'
     }
     return new Handlebars.SafeString(html)
   })
 }
+</code></pre>
+        </article>
+    </section>
+
+
+
+
+</div>
+
+<nav>
+    <h2><a href="index.html">Home</a></h2><h3>Global</h3><ul><li><a href="global.html#getEndpoints">getEndpoints</a></li><li><a href="global.html#getMetadata">getMetadata</a></li><li><a href="global.html#getParameterByName">getParameterByName</a></li><li><a href="global.html#hideForm">hideForm</a></li><li><a href="global.html#hideLoader">hideLoader</a></li><li><a href="global.html#hideProgress">hideProgress</a></li><li><a href="global.html#loadMetadata">loadMetadata</a></li><li><a href="global.html#loadUser">loadUser</a></li><li><a href="global.html#readFormData">readFormData</a></li><li><a href="global.html#registerEvents">registerEvents</a></li><li><a href="global.html#registerHelpers">registerHelpers</a></li><li><a href="global.html#showError">showError</a></li><li><a href="global.html#showForm">showForm</a></li><li><a href="global.html#showLoader">showLoader</a></li><li><a href="global.html#showProgress">showProgress</a></li><li><a href="global.html#showSuccess">showSuccess</a></li><li><a href="global.html#upsertEndpoints">upsertEndpoints</a></li><li><a href="global.html#upsertUser">upsertUser</a></li></ul>
+</nav>
+
+<br class="clear">
+
+<footer>
+    Documentation generated by <a href="https://github.com/jsdoc/jsdoc">JSDoc 3.6.4</a> on Tue Jul 07 2020 11:44:39 GMT-0400 (Eastern Daylight Time)
+</footer>
+
+<script> prettyPrint(); </script>
+<script src="scripts/linenumber.js"> </script>
+</body>
+</html>
