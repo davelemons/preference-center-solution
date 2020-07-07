@@ -9,7 +9,7 @@ Cloudformation template to deploy a fully functional Preference Center to collec
 - An existing S3 bucket to package code to: `aws s3 mb [unique bucket name]`
 
 ## Getting Started
-- Clone this repo: `git clone https://github.com/davelemons/preference-center-solution.git && cd preference-center-solution`
+- Clone this repo: `git clone git@github.com:davelemons/preference-center-solution.git && cd preference-center-solution`
 - Build: `./build.sh [s3 bucket name from above]`
 - Deploy: `./deploy.sh` This accepts optional parameters to specify the cloudformation stack name and pinpoint project/application ID.  If not specified it will use `preference-center` as the stack name and generate a new Pinpoint Project.
 - Wait for Cloudformation build to complete and examine outputs which will have resulting Preference Center URLs
