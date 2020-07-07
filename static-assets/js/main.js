@@ -1,9 +1,3 @@
-
-/**
- * @module Client side JS code for Preference Center Solution.  Handles fetching metadata and user data.  Will also validate inputs and submit updates to REST API
- * @author davelem
- * @version 1.0.0
- */
 const apiKey = '${API_KEY}'
 const baseURL = '${API_URL}'
 const projectID = getParameterByName('pid') 
