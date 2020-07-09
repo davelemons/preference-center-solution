@@ -138,7 +138,8 @@ Resources:
       ProvisionedThroughput:
         ReadCapacityUnits: 10
         WriteCapacityUnits: 1
-      StreamViewType: NEW_AND_OLD_IMAGES
+      StreamSpecification:
+        StreamViewType: NEW_AND_OLD_IMAGES
 
   BaseDataLambdaRole:
     Type: AWS::IAM::Role
@@ -572,16 +573,20 @@ Resources:
               - dynamodb:DescribeStream
               - dynamodb:GetRecords
               - dynamodb:GetShardIterator
+              Resource:
+                - !Sub "arn:aws:dynamodb:${AWS::Region}:${AWS::AccountId}:table/preferenceCenterMetadata/stream/*"
+            - Effect: Allow 
+              Action:
               - dynamodb:ListStreams
               Resource:
-                - !Sub "arn:aws:dynamodb:${AWS::Region}:${AWS::AccountId}:table/preferenceCenterMetadata"
-            - Effect: "Allow"
+                - !Sub "arn:aws:dynamodb:${AWS::Region}:${AWS::AccountId}:table/preferenceCenterMetadata/*"
+            - Effect: Allow
               Action:
-                  - "mobiletargeting:PutEvents"
-                  - "mobiletargeting:GetSegments"
-                  - "mobiletargeting:UpdateSegment"
-                  - "mobiletargeting:GetSegment"
-                  - "mobiletargeting:CreateSegment"
+              - "mobiletargeting:PutEvents"
+              - "mobiletargeting:GetSegments"
+              - "mobiletargeting:UpdateSegment"
+              - "mobiletargeting:GetSegment"
+              - "mobiletargeting:CreateSegment"
               Resource:
                 - !Sub "arn:aws:mobiletargeting:${AWS::Region}:${AWS::AccountId}:apps/*" #This is a bit permissive, but we want this lambda to handle preference centers for multiple projects/applications
   

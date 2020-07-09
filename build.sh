@@ -19,10 +19,10 @@ fi
 echo "------------------------------------------------------------------------------"
 echo "Package AWS Lambda Functions"
 echo "------------------------------------------------------------------------------"
-cd lambdas/api
+cd lambdas/rest-api-handler
 npm install
 jsdoc2md index.js > README.md
-cd ../trigger
+cd ../stream-processor
 npm install
 jsdoc2md index.js > README.md
 

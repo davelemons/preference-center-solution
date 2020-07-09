@@ -1,26 +1,26 @@
-<a name="module_Lambda Handler for the Preference Center REST API"></a>
+<a name="module_preferenceCenterHandler"></a>
 
-## Lambda Handler for the Preference Center REST API
+## preferenceCenterHandler
 **Version**: 1.0.0  
 **Author**: davelem  
 
-* [Lambda Handler for the Preference Center REST API](#module_Lambda Handler for the Preference Center REST API)
+* [preferenceCenterHandler](#module_preferenceCenterHandler)
     * _static_
-        * [.handler(event, context, callback)](#module_Lambda Handler for the Preference Center REST API.handler)
+        * [.handler(event, context, callback)](#module_preferenceCenterHandler.handler)
     * _inner_
-        * [~createPinpointEvent(preferenceCenterID, eventType, endpoint, attributes)](#module_Lambda Handler for the Preference Center REST API..createPinpointEvent) ⇒ <code>Object</code>
-        * [~processEvents(projectId, events, endpoint, attributes)](#module_Lambda Handler for the Preference Center REST API..processEvents) ⇒ <code>Promise</code>
-        * [~getMetadata(projectId, preferenceCenterID)](#module_Lambda Handler for the Preference Center REST API..getMetadata) ⇒ <code>Promise</code>
-        * [~getUserEndpoints(projectId, userID)](#module_Lambda Handler for the Preference Center REST API..getUserEndpoints) ⇒ <code>Promise</code>
-        * [~upsertEndpoints(projectId, endpoints)](#module_Lambda Handler for the Preference Center REST API..upsertEndpoints) ⇒ <code>Promise</code>
-        * [~upsertEndpoint(projectId, [userID], endpoints)](#module_Lambda Handler for the Preference Center REST API..upsertEndpoint) ⇒ <code>Promise</code>
+        * [~createPinpointEvent(preferenceCenterID, eventType, endpoint, attributes)](#module_preferenceCenterHandler..createPinpointEvent) ⇒ <code>Object</code>
+        * [~processEvents(projectId, events, endpoint, attributes)](#module_preferenceCenterHandler..processEvents) ⇒ <code>Promise</code>
+        * [~getMetadata(projectId, preferenceCenterID)](#module_preferenceCenterHandler..getMetadata) ⇒ <code>Promise</code>
+        * [~getUserEndpoints(projectId, userID)](#module_preferenceCenterHandler..getUserEndpoints) ⇒ <code>Promise</code>
+        * [~upsertEndpoints(projectId, endpoints)](#module_preferenceCenterHandler..upsertEndpoints) ⇒ <code>Promise</code>
+        * [~upsertEndpoint(projectId, [userID], endpoints)](#module_preferenceCenterHandler..upsertEndpoint) ⇒ <code>Promise</code>
 
-<a name="module_Lambda Handler for the Preference Center REST API.handler"></a>
+<a name="module_preferenceCenterHandler.handler"></a>
 
-### Lambda Handler for the Preference Center REST API.handler(event, context, callback)
+### preferenceCenterHandler.handler(event, context, callback)
 Main Lambda Handler...Start Here.
 
-**Kind**: static method of [<code>Lambda Handler for the Preference Center REST API</code>](#module_Lambda Handler for the Preference Center REST API)  
+**Kind**: static method of [<code>preferenceCenterHandler</code>](#module_preferenceCenterHandler)  
 
 | Param | Type | Description |
 | --- | --- | --- |
@@ -28,12 +28,12 @@ Main Lambda Handler...Start Here.
 | context | <code>Object</code> | The Lambda Context Object |
 | callback | <code>Array.&lt;Object&gt;</code> | The lambda callback method to execute when the function completes |
 
-<a name="module_Lambda Handler for the Preference Center REST API..createPinpointEvent"></a>
+<a name="module_preferenceCenterHandler..createPinpointEvent"></a>
 
-### Lambda Handler for the Preference Center REST API~createPinpointEvent(preferenceCenterID, eventType, endpoint, attributes) ⇒ <code>Object</code>
+### preferenceCenterHandler~createPinpointEvent(preferenceCenterID, eventType, endpoint, attributes) ⇒ <code>Object</code>
 Formats a custom Pinpoint event
 
-**Kind**: inner method of [<code>Lambda Handler for the Preference Center REST API</code>](#module_Lambda Handler for the Preference Center REST API)  
+**Kind**: inner method of [<code>preferenceCenterHandler</code>](#module_preferenceCenterHandler)  
 **Returns**: <code>Object</code> - Returns a pinpoint custom event object  
 
 | Param | Type | Description |
@@ -43,12 +43,12 @@ Formats a custom Pinpoint event
 | endpoint | <code>Object</code> | The pinpoint project or application id |
 | attributes | <code>Object</code> | Custom attributes to add to pinpoint event |
 
-<a name="module_Lambda Handler for the Preference Center REST API..processEvents"></a>
+<a name="module_preferenceCenterHandler..processEvents"></a>
 
-### Lambda Handler for the Preference Center REST API~processEvents(projectId, events, endpoint, attributes) ⇒ <code>Promise</code>
+### preferenceCenterHandler~processEvents(projectId, events, endpoint, attributes) ⇒ <code>Promise</code>
 Writes a batch of custom pinpoint events
 
-**Kind**: inner method of [<code>Lambda Handler for the Preference Center REST API</code>](#module_Lambda Handler for the Preference Center REST API)  
+**Kind**: inner method of [<code>preferenceCenterHandler</code>](#module_preferenceCenterHandler)  
 
 | Param | Type | Description |
 | --- | --- | --- |
@@ -57,12 +57,12 @@ Writes a batch of custom pinpoint events
 | endpoint | <code>Object</code> | The pinpoint project or application id |
 | attributes | <code>Object</code> | Custom attributes to add to pinpoint event |
 
-<a name="module_Lambda Handler for the Preference Center REST API..getMetadata"></a>
+<a name="module_preferenceCenterHandler..getMetadata"></a>
 
-### Lambda Handler for the Preference Center REST API~getMetadata(projectId, preferenceCenterID) ⇒ <code>Promise</code>
+### preferenceCenterHandler~getMetadata(projectId, preferenceCenterID) ⇒ <code>Promise</code>
 Writes a batch of custom pinpoint events
 
-**Kind**: inner method of [<code>Lambda Handler for the Preference Center REST API</code>](#module_Lambda Handler for the Preference Center REST API)  
+**Kind**: inner method of [<code>preferenceCenterHandler</code>](#module_preferenceCenterHandler)  
 **Returns**: <code>Promise</code> - A Promise object that contatins the metadata retrieved from DynamoDB  
 
 | Param | Type | Description |
@@ -70,12 +70,12 @@ Writes a batch of custom pinpoint events
 | projectId | <code>String</code> | The pinpoint application/project id to associate the events with |
 | preferenceCenterID | <code>String</code> | The preference center id |
 
-<a name="module_Lambda Handler for the Preference Center REST API..getUserEndpoints"></a>
+<a name="module_preferenceCenterHandler..getUserEndpoints"></a>
 
-### Lambda Handler for the Preference Center REST API~getUserEndpoints(projectId, userID) ⇒ <code>Promise</code>
+### preferenceCenterHandler~getUserEndpoints(projectId, userID) ⇒ <code>Promise</code>
 Writes a batch of custom pinpoint events
 
-**Kind**: inner method of [<code>Lambda Handler for the Preference Center REST API</code>](#module_Lambda Handler for the Preference Center REST API)  
+**Kind**: inner method of [<code>preferenceCenterHandler</code>](#module_preferenceCenterHandler)  
 **Returns**: <code>Promise</code> - A Promise object that contatins a collection of user endpoints  
 
 | Param | Type | Description |
@@ -83,12 +83,12 @@ Writes a batch of custom pinpoint events
 | projectId | <code>String</code> | The pinpoint application/project id to associate the events with |
 | userID | <code>String</code> | The User.UserID to retrieve |
 
-<a name="module_Lambda Handler for the Preference Center REST API..upsertEndpoints"></a>
+<a name="module_preferenceCenterHandler..upsertEndpoints"></a>
 
-### Lambda Handler for the Preference Center REST API~upsertEndpoints(projectId, endpoints) ⇒ <code>Promise</code>
+### preferenceCenterHandler~upsertEndpoints(projectId, endpoints) ⇒ <code>Promise</code>
 Upserts a collection of endpoints synchronously to avoid hammering the API
 
-**Kind**: inner method of [<code>Lambda Handler for the Preference Center REST API</code>](#module_Lambda Handler for the Preference Center REST API)  
+**Kind**: inner method of [<code>preferenceCenterHandler</code>](#module_preferenceCenterHandler)  
 **Returns**: <code>Promise</code> - A Promise object that returns the User.ID.  If it was a new user then this will contain the UUID that was generated  
 
 | Param | Type | Description |
@@ -96,12 +96,12 @@ Upserts a collection of endpoints synchronously to avoid hammering the API
 | projectId | <code>String</code> | The pinpoint application/project id to associate the events with |
 | endpoints | <code>Array.&lt;Object&gt;</code> | The endpoints to upsert |
 
-<a name="module_Lambda Handler for the Preference Center REST API..upsertEndpoint"></a>
+<a name="module_preferenceCenterHandler..upsertEndpoint"></a>
 
-### Lambda Handler for the Preference Center REST API~upsertEndpoint(projectId, [userID], endpoints) ⇒ <code>Promise</code>
+### preferenceCenterHandler~upsertEndpoint(projectId, [userID], endpoints) ⇒ <code>Promise</code>
 Writes a batch of custom pinpoint events
 
-**Kind**: inner method of [<code>Lambda Handler for the Preference Center REST API</code>](#module_Lambda Handler for the Preference Center REST API)  
+**Kind**: inner method of [<code>preferenceCenterHandler</code>](#module_preferenceCenterHandler)  
 **Returns**: <code>Promise</code> - A Promise object that contatins a collection of user endpoints  
 
 | Param | Type | Default | Description |
