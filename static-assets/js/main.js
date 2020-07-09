@@ -329,6 +329,13 @@ function readFormData () {
           if ($(this).attr('name') === property) {
             if ($(this).prop('checked')) {
               tmpAttributes[property].push($(this).val())
+
+              // TODO: Question for Team...Confirm we want to do this:
+              // If the user opted in to a publication and they were unsubscribed, then set their OptOut flag back to All
+              var selectedChannel = $(this).val()
+              endpoints.forEach(function (endpoint, index) {
+                if(endpoint.ChannelType === selectedChannel) endpoint.OptOut = 'NONE'
+              })
             }
           }
         }
@@ -434,9 +441,15 @@ function registerEvents () {
   })
 
   $(document).on('click', '#unsub-from-all', function (e) {
+     
     if ($(this).prop('checked')) {
       $('.publication-checkbox').each(function (attribute, index) {
         $(this).prop('checked', false)
+      })
+
+      // TODO: Question for Team...Confirm we want to do this:
+      endpoints.forEach(function (endpoint, index) {
+        endpoint.OptOut = 'ALL'
       })
     }
   })
