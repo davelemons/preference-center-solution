@@ -34,6 +34,9 @@ $(document).ready(function () {
       realTime: true
     }, metadata.text.inputValidationMessages)
 
+    //Tooltips
+    tlite(el => el.classList.contains('tooltip'));
+
     hideLoader()
     showForm()
   }).catch(function (e) {
@@ -434,12 +437,15 @@ function getParameterByName (name, url) {
  * Register jquery events
  */
 function registerEvents () {
+
+  //Submit Button
   $(document).on('submit', 'form', function (e) {
     e.preventDefault()
     upsertEndpoints()
     return false
   })
 
+  //Unsub from all
   $(document).on('click', '#unsub-from-all', function (e) {
      
     if ($(this).prop('checked')) {

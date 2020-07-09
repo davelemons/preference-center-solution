@@ -4,8 +4,8 @@ button,
 input[type='button'],
 input[type='reset'],
 input[type='submit'] {
-  background-color: #862389;
-  border: 0.1rem solid #862389;
+  background-color: ${PRIMARY_COLOR};
+  border: 0.1rem solid ${PRIMARY_COLOR};;
 }
 
 input[type='color']:focus,
@@ -24,7 +24,7 @@ input[type='week']:focus,
 input:not([type]):focus,
 textarea:focus,
 select:focus {
-  border-color: #862389; 
+  border-color: ${SECONDARY_COLOR};; 
   outline: 0;
 }
 

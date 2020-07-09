@@ -12,6 +12,7 @@
   <link rel="stylesheet" href="css/milligram.css">
   <link rel="stylesheet" href="css/fontawesome.min.css">
   <link rel="stylesheet" href="css/validetta.min.css">
+  <link rel="stylesheet" href="css/tlite.css">
   <link rel="stylesheet" href="css/main.css">
 
 </head>
@@ -22,20 +23,25 @@
     <form id="form">
       <div class="row">
         <div class="column">
-          <a href="{{websiteURL}}"><img class="logo" id="logo" alt="logo" src="{{ logoURL }}" /></a>
+          {{#if logoURL }}
+            <a id="logo-url" href="{{websiteURL}}"><img class="logo" id="logo" alt="logo" src="{{ logoURL }}" /></a>
+          {{/if}}
           {{#if text.pageHeader }}
             <span class="page-header" id="page-header">{{{text.pageHeader}}}</span>
           {{/if}}
         </div>
       </div>
       <hr>
-      <div class="row">
-        <div class="column">
-          <h3 id="page-title">{{{text.pageTitle}}}</h3>
-          <p id="page-description">{{{text.pageDescription}}}</p>
+
+      {{#if text.pageTitle }}
+        <div class="row">
+          <div class="column">
+            <h3 id="page-title">{{{text.pageTitle}}}</h3>
+            <p id="page-description">{{{text.pageDescription}}}</p>
+          </div>
         </div>
-      </div>
-      <hr>
+        <hr>
+      {{/if}}
 
       <!--Endpoint Address-->
       {{#each availableChannels}}
@@ -75,6 +81,7 @@
 
       <hr>
 
+      <!--Publications-->
       {{#each categories}}
       <div class="row">
         <div class="column column-66">
@@ -110,35 +117,16 @@
       <hr>
     {{/each}}
 
-      <!-- {{#each categories}}
-        <div class="row">
-          <div class="column column-66">
-            <h4>{{this.name}}</h4>
-            <p>{{this.description}}</p>
-          </div>
-        </div>
-        {{#each publications}}
-          <div class="row">
-            <div class="column">
-              <input type="checkbox" id="publication_{{../id}}_{{this.id}}" />
-              <label class="publication-name" for="publication_{{../id}}_{{this.id}}">{{{this.name}}}</label>
-              <p>
-                {{{this.description}}}
-              </p>
-            </div>
-          </div>
-        {{/each}}
-        <hr>
-      {{/each}} -->
-
+    {{#if text.pageTitle }}
       <div class="row">
         <div class="column">
           <input type="checkbox" id="unsub-from-all">
           <label class="label-inline" for="unsub-from-all">{{text.unsubscribeText}}</label>
         </div>
       </div>
-
       <hr>
+    {{/if}}
+
       <div class="row">
         <div class="column">
           <span class="float-right">
@@ -167,6 +155,7 @@
   <script src="js/handlebars.min-v4.7.6.js"></script>
   <script src="js/jquery.blockUI.js"></script>
   <script src="js/validetta.min.js"></script>
+  <script src="js/tlite.min.js"></script>
   <script src="js/main.js"></script>
 </body>
 </html>

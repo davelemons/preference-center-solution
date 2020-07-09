@@ -109,6 +109,8 @@ Resources:
         FilePattern: "**/*"
         Values:
           PAGE_TITLE: !Ref "PreferenceCenterName"
+          PRIMARY_COLOR: !Ref "PrimaryCSSColor"
+          SECONDARY_COLOR: !Ref "SecondaryCSSColor"
           API_KEY: !GetAtt "SetInitialValues.apiKey"
           API_URL: !Sub "https://${RestAPI}.execute-api.${AWS::Region}.amazonaws.com/prod/preferencecenter/"
       Acl: 'private'
