@@ -8,7 +8,5 @@
   },
   "author": "",
   "license": "ISC",
-  "dependencies": {
-    "shortid": "^2.2.15"
-  }
+  "dependencies": {}
 }

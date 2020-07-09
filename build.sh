@@ -21,12 +21,14 @@ echo "Package AWS Lambda Functions"
 echo "------------------------------------------------------------------------------"
 cd lambdas/api
 npm install
-zip -r function.zip *
+jsdoc2md index.js > README.md
+cd ../trigger
+npm install
+jsdoc2md index.js > README.md
 
 echo "------------------------------------------------------------------------------"
 echo "Build Docs"
 echo "------------------------------------------------------------------------------"
-jsdoc2md index.js > README.md
 cd ../../static-assets/js
 jsdoc2md main.js > README.md
 

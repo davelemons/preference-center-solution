@@ -1,5 +1,5 @@
 /**
- * @module Lambda Handler for the Preference Center REST API
+ * @module preferenceCenterHandler
  * @author davelem
  * @version 1.0.0
  */
@@ -148,6 +148,8 @@ function upsertEndpoints(projectID, endpoints) {
       }, Promise.resolve())
       .then(()=>{
         resolve(userID);
+      }).catch((err)=>{
+        reject(err);
       });
 
   });
