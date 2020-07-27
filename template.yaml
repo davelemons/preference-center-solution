@@ -11,13 +11,13 @@ Description: Automaticaly provision and configure the AWS services necessary to 
 Parameters:
   PinpointProjectId:
     Type: String
-    Description: Amazon Pinpoint Project ID if one already exists, leave blank to create one.
+    Description: An Amazon Pinpoint Project (Application) ID if one already exists.  If specified the Preference Center will be tied to this Pinpoint Project ID.  If left blank, then a new Pinpoint Project will be created for you.
     AllowedPattern: ^[a-zA-Z0-9]*$
     Default: "8822cc12c3b04a6ebd81f27c96b3aa64" #TODO: Remove after testing
   PinpointProjectName:
     Type: String
     Default: "My Pinpoint Project with a sample Preference Center"
-    Description: "If no PinpointProjectId provided, name to be used to create the Pinpoint project"
+    Description: "If no Pinpoint Project ID is specified above, then this will be used for the name of the project."
   PreferenceCenterName:
     Type: String
     Default: "Preference Center"
@@ -26,12 +26,12 @@ Parameters:
     Type: String
     Default: "#862389"
     AllowedPattern: "#([a-f]|[A-F]|[0-9]){3}(([a-f]|[A-F]|[0-9]){3})?\\b"
-    Description: "The primary css color. Primarily used for button colors"
+    Description: "The Primary CSS color used primarily for Button colors"
   SecondaryCSSColor:
     Type: String
     Default: "#862389"
     AllowedPattern: "#([a-f]|[A-F]|[0-9]){3}(([a-f]|[A-F]|[0-9]){3})?\\b"
-    Description: "The secondary css color. Primarily used for borders and accent colors"
+    Description: "The Secondary CSS color used for input borders and other highlights"
 
 Conditions:
   NeedsPinpointProjectId: !Equals ['', !Ref PinpointProjectId]

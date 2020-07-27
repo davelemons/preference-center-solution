@@ -134,6 +134,7 @@ function loadUser () {
 
   // User Attributes
   // TODO: need to figure out which endpoint we grab data off of...using first one for now
+  // Ryan said this is okay.
   if (endpoints.length) {
     var userAttributes = endpoints[0].User.UserAttributes
 
@@ -348,6 +349,7 @@ function readFormData () {
 
   // Update endpoint Users Attributes  TODO: Do we update all, or only update appropriate one if endpoint id is passed
   // TODO: do we want to make it configurable if user or endpoint attributes are updated?
+  // Okay to store everything as user attributes
   endpoints.forEach(function (endpoint, index) {
     endpoint.User.UserAttributes = tmpAttributes
   })
