@@ -154,7 +154,7 @@ Please refer to the comments below for a high-level description of each property
 		"id": "EMAIL", //[Required] - the Channel of the available channel.  This is the Channel of the endpoint: https://docs.aws.amazon.com/pinpoint/latest/userguide/channels.html
 		"inputMask": "'alias': 'email'", // [Optional] - If specified will force the input into a particular format. https://github.com/RobinHerbots/Inputmask#via-data-inputmask-attribute
 		"required": true, //[Optional] - If true will force the user to enter a value.  This also supports passing a string value to allow for more granular field validation.  See http://lab.hasanaydogdu.com/validetta/
-		"inputPlaceholder": "jane@example.com" //[ Optional] - Will display place holder text into the input with an example for the user
+		"inputPlaceholder": "" //[ Optional] - Will display place holder text into the input with an example for the user
 	}, {
 		"displayName": "SMS",
 		"inputLabel": "Mobile Phone Number",

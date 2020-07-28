@@ -159,7 +159,7 @@ function putMetadata(tableName, projectID) {
           "id": "EMAIL",
           "inputMask": "'alias': 'email'",
           "required": true,
-          "inputPlaceholder": "jane@example.com"
+          "inputPlaceholder": ""
         }, {
           "displayName": "SMS",
           "inputLabel": "Mobile Phone Number",

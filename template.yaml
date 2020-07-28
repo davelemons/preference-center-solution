@@ -46,6 +46,62 @@ Resources:
       Name: !Ref PinpointProjectName
 
   ################
+  # Log Bucket
+  ################
+  LogBucket:
+    Type: AWS::S3::Bucket
+    DeletionPolicy: Retain
+    Metadata:
+      cfn_nag:
+        rules_to_suppress:
+          - id: W35
+            reason: This is the log bucket.
+    Properties:
+      AccessControl: LogDeliveryWrite
+      PublicAccessBlockConfiguration:
+        BlockPublicAcls: True
+        BlockPublicPolicy: True
+        IgnorePublicAcls: True
+        RestrictPublicBuckets: True
+      BucketEncryption:
+        ServerSideEncryptionConfiguration:
+          - ServerSideEncryptionByDefault:
+              SSEAlgorithm: AES256
+
+  LogBucketPolicy:
+    Type: AWS::S3::BucketPolicy
+    Properties:
+      Bucket: !Ref LogBucket
+      PolicyDocument:
+        Version: 2012-10-17
+        Statement:
+        - Sid: AWSCloudTrailAclCheck
+          Effect: Allow
+          Principal:
+            Service: cloudtrail.amazonaws.com
+          Action: "s3:GetBucketAcl"
+          Resource: !Sub arn:aws:s3:::${LogBucket}
+        - Sid: AWSCloudTrailWrite
+          Effect: Allow
+          Principal:
+            Service: cloudtrail.amazonaws.com
+          Action: "s3:PutObject"
+          Resource: !Sub arn:aws:s3:::${LogBucket}/AWSLogs/${AWS::AccountId}/*
+          Condition:
+            StringEquals:
+              "s3:x-amz-acl": "bucket-owner-full-control"
+        - Sid: LogBucketAllowSSLRequestsOnly
+          Effect: Deny
+          Principal: "*"
+          Action: "s3:*"
+          Resource:
+            - !Sub "arn:aws:s3:::${LogBucket}/*"
+            - !Sub "arn:aws:s3:::${LogBucket}"
+          Condition:
+            Bool:
+              "aws:SecureTransport": "false"
+
+  ################
   # Lambda Deployer that pushes static files to S3
   ################
   StaticFiles:
@@ -61,6 +117,13 @@ Resources:
         RestrictPublicBuckets: true
       VersioningConfiguration:
         Status: Enabled
+      BucketEncryption:
+        ServerSideEncryptionConfiguration:
+          - ServerSideEncryptionByDefault:
+              SSEAlgorithm: AES256
+      LoggingConfiguration:
+        DestinationBucketName: !Ref LogBucket
+        LogFilePrefix: pinpoint-preference-center-s3/
 
   S3DeploymentLayer:
     Type: AWS::Serverless::LayerVersion
@@ -121,8 +184,12 @@ Resources:
   ################
   DynamoDBTable:
     Type: AWS::DynamoDB::Table
+    Metadata:
+      cfn_nag:
+        rules_to_suppress:
+            - id: W74
+              reason: "Table does not contain any PII and will only house metadata to drive preference center"
     Properties: 
-      TableName: "preferenceCenterMetadata"
       AttributeDefinitions:
       - 
         AttributeName: preferenceCenterID
@@ -137,9 +204,7 @@ Resources:
       - 
         AttributeName: preferenceCenterID
         KeyType: RANGE
-      ProvisionedThroughput:
-        ReadCapacityUnits: 10
-        WriteCapacityUnits: 1
+      BillingMode: PAY_PER_REQUEST
       StreamSpecification:
         StreamViewType: NEW_AND_OLD_IMAGES
 
@@ -165,10 +230,6 @@ Resources:
               Action:
               - dynamodb:PutItem 
               Resource: !GetAtt "DynamoDBTable.Arn" 
-            - Effect: Allow
-              Action: 
-              - apigateway:GET 
-              Resource: "*" #TODO: Lock this down if possible
             - Effect: Allow
               Action:
               - "logs:CreateLogGroup"
@@ -477,6 +538,9 @@ Resources:
     Properties:
       RestApiId: !Ref "RestAPI"
 
+  AccessLogGroup:
+    Type: AWS::Logs::LogGroup
+
   GatewayStage:
     Type: AWS::ApiGateway::Stage
     DependsOn:
@@ -487,6 +551,14 @@ Resources:
       Description: Prod Stage
       RestApiId: !Ref "RestAPI"
       DeploymentId: !Ref GatewayDeployment
+      AccessLogSetting:
+        DestinationArn: !GetAtt AccessLogGroup.Arn
+        Format: >-
+          {"requestId":"$context.requestId", "ip": "$context.identity.sourceIp",
+          "caller":"$context.identity.caller",
+          "user":"$context.identity.user","requestTime":"$context.requestTime",
+          "eventType":"$context.eventType","routeKey":"$context.routeKey",
+          "status":"$context.status","connectionId":"$context.connectionId"}
 
   UsagePlan:
     Type: 'AWS::ApiGateway::UsagePlan'
@@ -509,7 +581,6 @@ Resources:
     - "RestAPI"
     - "GatewayStage"
     Properties:
-      Name: PreferenceCenterAPI
       Description: API Key for the Preference Center
       Enabled: 'true'
       StageKeys:
@@ -575,13 +646,17 @@ Resources:
               - dynamodb:DescribeStream
               - dynamodb:GetRecords
               - dynamodb:GetShardIterator
-              Resource:
-                - !Sub "arn:aws:dynamodb:${AWS::Region}:${AWS::AccountId}:table/preferenceCenterMetadata/stream/*"
+              Resource: 
+                - !Sub
+                  - '${DynamoStreamARN}/*'
+                  - DynamoStreamARN: !GetAtt DynamoDBTable.StreamArn
             - Effect: Allow 
               Action:
               - dynamodb:ListStreams
               Resource:
-                - !Sub "arn:aws:dynamodb:${AWS::Region}:${AWS::AccountId}:table/preferenceCenterMetadata/*"
+                - !Sub
+                  - '${DynamoStreamARN}/*'
+                  - DynamoStreamARN: !GetAtt DynamoDBTable.Arn
             - Effect: Allow
               Action:
               - "mobiletargeting:PutEvents"
@@ -695,7 +770,7 @@ Resources:
                   - "dynamodb:GetItem"
                 Effect: "Allow"
                 Resource:
-                  - !Sub "arn:aws:dynamodb:${AWS::Region}:${AWS::AccountId}:table/preferenceCenterMetadata"
+                  - !GetAtt DynamoDBTable.Arn
           PolicyName: "dynamoDB"
         - PolicyDocument:
             Version: "2012-10-17"
@@ -740,6 +815,11 @@ Resources:
 
   CloudFrontDistribution:
     Type: "AWS::CloudFront::Distribution"
+    Metadata:
+      cfn_nag:
+        rules_to_suppress:
+            - id: W70
+              reason: "Using CloudFront Provided Cert which defaults thist to TLS1.  Hoping to avoid customer needing to provision cert just to deploy solution."
     Properties:
         DistributionConfig: 
             Origins:
@@ -772,12 +852,16 @@ Resources:
             Enabled: true
             ViewerCertificate: 
                 CloudFrontDefaultCertificate: true
-                MinimumProtocolVersion: "TLSv1"
+                MinimumProtocolVersion: "TLSv1.2_2018"
             Restrictions: 
                 GeoRestriction: 
                     RestrictionType: "none"
             HttpVersion: "http2"
             IPV6Enabled: true
+            Logging:
+                Bucket: !Ref LogBucket
+                IncludeCookies: true
+                Prefix: 'pinpoint-preference-center-cloudfront'
 
 Outputs:
   Domain:
