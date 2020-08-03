@@ -13,7 +13,6 @@ Parameters:
     Type: String
     Description: An Amazon Pinpoint Project (Application) ID if one already exists.  If specified the Preference Center will be tied to this Pinpoint Project ID.  If left blank, then a new Pinpoint Project will be created for you.
     AllowedPattern: ^[a-zA-Z0-9]*$
-    Default: "8822cc12c3b04a6ebd81f27c96b3aa64" #TODO: Remove after testing
   PinpointProjectName:
     Type: String
     Default: "My Pinpoint Project with a sample Preference Center"
@@ -163,7 +162,7 @@ Resources:
     DependsOn:
     - ApiKey
     - RestAPI
-    - BaseDataInitFunction
+    - SolutionHelperFunction
     Properties:
       ServiceToken: !GetAtt "PCDeployer.Arn"
       Version: !Ref "PCDeployer.Version"
@@ -227,6 +226,10 @@ Resources:
             Version: '2012-10-17'
             Statement:
             - Effect: Allow
+              Action: 
+              - apigateway:GET 
+              Resource: "*" # TODO...tried this, but can't get this to work: !Sub "arn:aws:apigateway:${AWS::Region}:${AWS::AccountId}:*"
+            - Effect: Allow
               Action:
               - dynamodb:PutItem 
               Resource: !GetAtt "DynamoDBTable.Arn" 
@@ -235,15 +238,14 @@ Resources:
               - "logs:CreateLogGroup"
               - "logs:CreateLogStream"
               - "logs:PutLogEvents"
-              Resource: 
-                - !Sub "arn:aws:logs:${AWS::Region}:${AWS::AccountId}:log-group:/aws/lambda/PreferenceCenterInitialValues:*"
+              Resource: !Sub "arn:aws:logs:${AWS::Region}:${AWS::AccountId}:*"
 
-  BaseDataInitFunction:
+  SolutionHelperFunction:
     Type: AWS::Lambda::Function
     Properties:
       Description: "Sets default values during initial cloudformation deployment"
       FunctionName: "PreferenceCenterInitialValues"
-      Code: lambdas/set-initial-values 
+      Code: lambdas/solution-helper
       Handler: index.handler
       Role:
         Fn::GetAtt: [ BaseDataLambdaRole , "Arn" ]
@@ -258,7 +260,7 @@ Resources:
     - "DataTableStream"
     Properties:
       ServiceToken:
-         Fn::GetAtt: [ BaseDataInitFunction , "Arn" ]
+         Fn::GetAtt: [ SolutionHelperFunction , "Arn" ]
       DynamoTableName:
         Ref: DynamoDBTable
       PinpointProjectID: !If
@@ -541,6 +543,40 @@ Resources:
   AccessLogGroup:
     Type: AWS::Logs::LogGroup
 
+  CloudWatchLogGroupRole:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+        - Effect: Allow
+          Principal:
+            Service:
+            - apigateway.amazonaws.com
+          Action:
+          - sts:AssumeRole
+      Path: "/"
+      Policies:
+        - PolicyName: cloudWatchLogGroupRole
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+            - Effect: Allow
+              Action:
+              - "logs:CreateLogGroup"
+              - "logs:CreateLogStream"
+              - "logs:DescribeLogGroups"
+              - "logs:DescribeLogStreams"
+              - "logs:PutLogEvents"
+              - "logs:GetLogEvents"
+              - "logs:FilterLogEvents"
+              Resource: !Sub "arn:aws:logs:${AWS::Region}:${AWS::AccountId}:*"
+
+  GatewayAccount:
+    Type: "AWS::ApiGateway::Account"
+    Properties: 
+      CloudWatchRoleArn: !GetAtt CloudWatchLogGroupRole.Arn
+
   GatewayStage:
     Type: AWS::ApiGateway::Stage
     DependsOn:
@@ -618,6 +654,11 @@ Resources:
 
   StreamLambdaRole:
     Type: AWS::IAM::Role
+    Metadata:
+      cfn_nag:
+        rules_to_suppress:
+            - id: W13
+              reason: "Lambda will need to have access to multiple projects/applications in Pinpoint"
     Properties:
       AssumeRolePolicyDocument:
         Version: '2012-10-17'
@@ -639,24 +680,17 @@ Resources:
               - logs:CreateLogGroup
               - logs:CreateLogStream
               - logs:PutLogEvents
-              Resource: 
-                - !Sub "arn:aws:logs:${AWS::Region}:${AWS::AccountId}:log-group:/aws/lambda/preferenceCenterStreamProcessor:*"
+              Resource: !Sub "arn:aws:logs:${AWS::Region}:${AWS::AccountId}:*"
             - Effect: Allow 
               Action:
               - dynamodb:DescribeStream
               - dynamodb:GetRecords
               - dynamodb:GetShardIterator
-              Resource: 
-                - !Sub
-                  - '${DynamoStreamARN}/*'
-                  - DynamoStreamARN: !GetAtt DynamoDBTable.StreamArn
+              Resource: !GetAtt DynamoDBTable.StreamArn
             - Effect: Allow 
               Action:
               - dynamodb:ListStreams
-              Resource:
-                - !Sub
-                  - '${DynamoStreamARN}/*'
-                  - DynamoStreamARN: !GetAtt DynamoDBTable.Arn
+              Resource: !GetAtt DynamoDBTable.Arn
             - Effect: Allow
               Action:
               - "mobiletargeting:PutEvents"
@@ -665,7 +699,7 @@ Resources:
               - "mobiletargeting:GetSegment"
               - "mobiletargeting:CreateSegment"
               Resource:
-                - !Sub "arn:aws:mobiletargeting:${AWS::Region}:${AWS::AccountId}:apps/*" #This is a bit permissive, but we want this lambda to handle preference centers for multiple projects/applications
+                - !Sub "arn:aws:mobiletargeting:${AWS::Region}:${AWS::AccountId}:apps/*"
   
   DataTableStream:
     Type: AWS::Lambda::EventSourceMapping
@@ -760,8 +794,7 @@ Resources:
                   - "logs:CreateLogStream"
                   - "logs:PutLogEvents"
                 Effect: "Allow"
-                Resource:
-                  - !Sub "arn:aws:logs:${AWS::Region}:${AWS::AccountId}:log-group:/aws/lambda/PreferenceCenterHandler:*"
+                Resource: !Sub "arn:aws:logs:${AWS::Region}:${AWS::AccountId}:*"
           PolicyName: "lambda"
         - PolicyDocument:
             Version: "2012-10-17"
@@ -789,7 +822,6 @@ Resources:
   lambdaLogGroup:
     Type: "AWS::Logs::LogGroup"
     Properties:
-      LogGroupName: "/aws/lambda/PreferenceCenterHandler"
       RetentionInDays: 90
 
   ################
@@ -815,11 +847,13 @@ Resources:
 
   CloudFrontDistribution:
     Type: "AWS::CloudFront::Distribution"
+    DependsOn:
+    - LogBucket
     Metadata:
       cfn_nag:
         rules_to_suppress:
             - id: W70
-              reason: "Using CloudFront Provided Cert which defaults thist to TLS1.  Hoping to avoid customer needing to provision cert just to deploy solution."
+              reason: "Using CloudFront Provided Cert which defaults this to TLS1.  Hoping to avoid customer needing to provision cert just to deploy solution."
     Properties:
         DistributionConfig: 
             Origins:
@@ -859,7 +893,7 @@ Resources:
             HttpVersion: "http2"
             IPV6Enabled: true
             Logging:
-                Bucket: !Ref LogBucket
+                Bucket: !GetAtt 'LogBucket.DomainName'
                 IncludeCookies: true
                 Prefix: 'pinpoint-preference-center-cloudfront'
 

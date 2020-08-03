@@ -215,17 +215,21 @@ exports.handler =  (event, context, callback) => {
     console.log('Received event:', JSON.stringify(event, null, 2));
 
     try{
-      putMetadata(event.ResourceProperties.DynamoTableName, event.ResourceProperties.PinpointProjectID)
-      .then(function(){
-        return getAPIKey(event.ResourceProperties.ApiKeyID);
-      })
-      .then(function(apiKey){
-        return sendResponse(event, context.logStreamName, 'SUCCESS', {'apiKey':apiKey});
-      })
-      .catch(function(err){
-        console.log(JSON.stringify(err));
-        return sendResponse(event, context.logStreamName, 'FAILED', {});
-      });
+      if (event.RequestType == 'Create' || event.RequestType == 'Update'){
+        putMetadata(event.ResourceProperties.DynamoTableName, event.ResourceProperties.PinpointProjectID)
+        .then(function(){
+          return getAPIKey(event.ResourceProperties.ApiKeyID);
+        })
+        .then(function(apiKey){
+          return sendResponse(event, context.logStreamName, 'SUCCESS', {'apiKey':apiKey});
+        })
+        .catch(function(err){
+          console.log(JSON.stringify(err));
+          return sendResponse(event, context.logStreamName, 'FAILED', {});
+        });
+      } else {
+        return sendResponse(event, context.logStreamName, 'SUCCESS', {});
+      }
     }
     catch (ex){
       console.log(JSON.stringify(ex));

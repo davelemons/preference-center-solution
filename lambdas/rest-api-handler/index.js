@@ -10,9 +10,8 @@ const dynamo = new AWS.DynamoDB.DocumentClient();
 const pinpoint = new AWS.Pinpoint({region: process.env.REGION});
 const { v4: uuidv4 } = require('uuid');
 const moment = require('moment')
-
 var xss = require("xss");
-const xssOptions = {}; // Specifiy Custom XSS Options here
+const xssOptions = {'stripIgnoreTag':true,'stripIgnoreTagBody':true}; // Specifiy Custom XSS Options here
 const sanitizer = new xss.FilterXSS(xssOptions);
 
 /*****************
@@ -178,9 +177,9 @@ function upsertEndpoint(projectID, userID, endpoint) {
       //Sanitize all user specified values
       endpoint.Address = sanitizer.process(endpoint.Address);
       for (const property in endpoint.User.UserAttributes) {
-            endpoint.User.UserAttributes[property].forEach(value => {
-              value = sanitizer.process(value);
-            });
+        endpoint.User.UserAttributes[property].forEach(function(value,index) {
+          endpoint.User.UserAttributes[property][index] = sanitizer.process(value);
+        });
       }
      
       var params = {
