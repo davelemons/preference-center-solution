@@ -1,183 +1,25 @@
 const AWS = require('aws-sdk');
 const dynamo = new AWS.DynamoDB.DocumentClient();
-const https = require("https");
+const s3 = new AWS.S3();
 const url = require('url');
+const https = require('https');
+const fs = require('fs-extra');
+const path = require('path');
+const replace = require('replace-in-file');
+const mime = require('mime-types');
 
 function putMetadata(tableName, projectID) {
-  return new Promise((resolve, reject) => {
-
+  return new Promise(function(resolve,reject){
     console.log("putMetadata");
 
-    var params = {
-      TableName: tableName,
-      Item:{
-        "projectID": projectID,
-        "websiteURL": "http://aws.amazon.com",
-        "unsubscribe": {
-          "surveyQuestions": ["I no longer want to receive these emails", "I never signed up for this mailing list", "The emails are inappropriate", "The emails are spam and should be reported", "Other (fill in reason below)"],
-          "enabled": true,
-          "surveyEnabled": true
-        },
-        "categories": [{
-          "name": "Newsletters",
-          "description": "Check out our way cool newsletters!",
-          "publications": [{
-            "name": "Runners Monthly",
-            "description": "<strong>Do you love running?</strong>  If so, you need to subscribe to this great newsletter with all things Running",
-            "id": "runnersMonthly"
-          }, {
-            "name": "The Shoe Collector",
-            "description": "Celebrate all things related to the collecting and storing shoes",
-            "id": "theShoeCollector"
-          }]
-        }, {
-          "name": "Specials & New Arrivals",
-          "description": "Sign up for the best deals and upcoming new seasonal seasonal discounts",
-          "publications": [{
-            "name": "Weekly Specials",
-            "description": "Be one of the first to know about our weekly specials and special discounts",
-            "id": "weeklySpecials"
-          }, {
-            "name": "New Arrivals",
-            "description": "Our inventory changes according to whats available each season.  Sign up to stay informed of all the new arrivals",
-            "id": "newArrivals"
-          }]
-        }],
-        "logoURL": "img/badge.jpg",
-        "attributes": [{
-          "inputLabel": "First Name",
-          "description": "Please enter your First Name",
-          "inputType": "text",
-          "id": "firstName",
-          "required": true,
-          "inputPlaceholder": "Jane"
-        }, {
-          "inputLabel": "Last Name",
-          "description": "Please enter your Last Name",
-          "inputType": "text",
-          "id": "lastName",
-          "required": true,
-          "inputPlaceholder": "Doe"
-        }, {
-          "inputLabel": "Communication Preference",
-          "options": [{
-            "value": "EMAIL",
-            "selected": false,
-            "label": "Email"
-          }, {
-            "value": "SMS",
-            "selected": false,
-            "label": "SMS"
-          }],
-          "description": "How would you like for us to contact you?",
-          "inputType": "radio",
-          "id": "preferredChannel",
-          "required": false
-        }, {
-          "inputLabel": "Where do you Shop?",
-          "options": [{
-            "value": "",
-            "selected": true,
-            "label": ""
-          }, {
-            "value": "ao",
-            "selected": false,
-            "label": "Always online"
-          }, {
-            "value": "airs",
-            "selected": false,
-            "label": "Always in regular shops"
-          }, {
-            "value": "aoirsap",
-            "selected": false,
-            "label": "As often in regular shops as possible"
-          }, {
-            "value": "uooirs",
-            "selected": false,
-            "label": "Usually online, occasionally in regular shops"
-          }, {
-            "value": "uirsoo",
-            "selected": false,
-            "label": "Usually in regular shops, occasionally online"
-          }],
-          "description": "",
-          "inputType": "select",
-          "id": "shoppingPreference",
-          "required": false
-        }, {
-          "inputLabel": "Favorite Activities",
-          "options": [{
-            "value": "Hiking",
-            "selected": false,
-            "label": "Hiking"
-          }, {
-            "value": "Running",
-            "selected": false,
-            "label": "Running"
-          }, {
-            "value": "Walking",
-            "selected": false,
-            "label": "Walking"
-          }, {
-            "value": "Cycling",
-            "selected": false,
-            "label": "Cycling"
-          }],
-          "description": "What is your favorite outdoor activity?",
-          "inputType": "checkbox",
-          "id": "favoriteActivity",
-          "required": false
-        }],
-        "text": {
-          "inputValidationMessages": {
-            "number": "You can enter only numbers in this field.",
-            "maxChecked": "Maximum {count} options allowed. ",
-            "minLength": "Minimum {count} characters allowed.",
-            "maxSelected": "Maximum {count} selection allowed.",
-            "notEqual": "Fields do not match.",
-            "minChecked": "Please select minimum {count} options.",
-            "minSelected": "Minimum {count} selection allowed.",
-            "different": "Fields cannot be the same as each other.",
-            "creditCard": "Invalid credit card number.",
-            "required": "This field is required.",
-            "email": "Your E-mail address appears to be invalid.",
-            "maxLength": "Maximum {count} characters allowed."
-          },
-          "errorText": "We apologize, but there was an error saving your information.",
-          "pageTitle": "Communication Preferences",
-          "unsubscribeText": "Please Remove me from all Publications",
-          "successText": "Thank you for submitting your information!",
-          "pageDescription": "Please indicate which newsletters and special offers you would like to receive below",
-          "submitButtonText": "Submit",
-          "pageHeader": ""
-        },
-        "availableChannels": [{
-          "displayName": "Email",
-          "inputLabel": "Email Address",
-          "description": "This is a tooltip for Email!",
-          "inputType": "email",
-          "id": "EMAIL",
-          "inputMask": "'alias': 'email'",
-          "required": true,
-          "inputPlaceholder": ""
-        }, {
-          "displayName": "SMS",
-          "inputLabel": "Mobile Phone Number",
-          "description": "This is a tooltip for SMS!",
-          "inputType": "tel",
-          "id": "SMS",
-          "inputMask": "'mask': '+1(999) 999-9999'",
-          "required": false,
-          "inputPlaceholder": "(206) 555-0199"
-        }],
-        "description": "Preference center for Accent Athletics",
-        "preferenceCenterID": "default"
-      }
-    };
+    var params = require('./metadata-template.json');
+    params.TableName = tableName;
+    params.Item.projectID = projectID;
+
+    console.log(params);
 
     dynamo.put(params, function(err, data) { 
       if (err) {
-        console.log("putMetadata Error:");
         console.log(err);
         reject(err);
       } else {
@@ -189,7 +31,7 @@ function putMetadata(tableName, projectID) {
 }
 
 function getAPIKey(apiKeyID) {
-  return new Promise((resolve, reject) => {
+  return new Promise(function(resolve,reject){
     console.log("getAPIKey");
     var apigateway = new AWS.APIGateway();
     var params = {
@@ -199,7 +41,6 @@ function getAPIKey(apiKeyID) {
 
     apigateway.getApiKey(params, function(err, ApiKeyData) {
       if (err) {
-        console.log("getAPIKey Error:");
         console.log(err, err.stack); // an error occurred
         reject(err);
       } else {
@@ -211,22 +52,145 @@ function getAPIKey(apiKeyID) {
   });
 }
 
-exports.handler =  (event, context, callback) => {
+function walkDir(dir, callback) {
+  fs.readdirSync(dir).forEach( f => {
+    let dirPath = path.join(dir, f);
+    let isDirectory = fs.statSync(dirPath).isDirectory();
+    isDirectory ? 
+      walkDir(dirPath, callback) : callback(path.join(dir, f));
+  });
+}
+
+function fileSubstitutions(event, tempDir) {
+  return new Promise(function(resolve,reject){
+    try{
+      
+      console.log(tempDir);
+      
+      //Copy files out of Layer
+      fs.copySync('/opt', tempDir);
+
+      //What files were moved
+      walkDir(tempDir, function(filePath) {
+        //const fileContents = fs.readFileSync(filePath, 'utf8');
+        console.log(filePath);
+      });
+      
+      //File Substitutions
+      if (event.ResourceProperties.Substitutions) {
+          
+        //File Patterns
+        var files = event.ResourceProperties.Substitutions.FilePattern.split(',');
+        
+        files.forEach(function(file,index) {
+          files[index] = `${tempDir}/**/${file}`;
+        });
+        
+        //Values to Replace
+        var from = [];
+        var to = [];
+
+        Object.keys(event.ResourceProperties.Substitutions.Values).forEach(function(key) {
+          var val = event.ResourceProperties.Substitutions.Values[key];
+          from.push(new RegExp('\\${' + key + '}', 'g'));
+          to.push(val);
+        });
+        
+        var options = {
+          files: files,
+          from: from,
+          to: to,
+          countMatches: true,
+        };
+        
+        console.log(options);
+        
+        //const results = await replace(options);
+
+        replace(options)
+        .then(function (results){
+          console.log('Replacement results:', JSON.stringify(results));
+          resolve(results);
+        })
+        .catch(function(err){
+          console.log(err);
+          reject(err);
+        });
+      } else {
+        resolve();
+      }
+    } catch (err){
+      console.log(err);
+      reject(err);
+    }
+  });
+}
+
+exports.handler =  async (event, context, callback) => {
     console.log('Received event:', JSON.stringify(event, null, 2));
 
     try{
       if (event.RequestType == 'Create' || event.RequestType == 'Update'){
-        putMetadata(event.ResourceProperties.DynamoTableName, event.ResourceProperties.PinpointProjectID)
-        .then(function(){
-          return getAPIKey(event.ResourceProperties.ApiKeyID);
-        })
-        .then(function(apiKey){
-          return sendResponse(event, context.logStreamName, 'SUCCESS', {'apiKey':apiKey});
-        })
-        .catch(function(err){
-          console.log(JSON.stringify(err));
-          return sendResponse(event, context.logStreamName, 'FAILED', {});
+
+        var tempDir = `/tmp/${context.awsRequestId}`;
+
+        let apiKey = await getAPIKey(event.ResourceProperties.ApiKeyID);
+        let metadataResults = await putMetadata(event.ResourceProperties.DynamoTableName, event.ResourceProperties.PinpointProjectID);
+
+        //Inject apiKey
+        event.ResourceProperties.Substitutions.Values.API_KEY = apiKey;
+
+        let fileSubstitutionResults = await fileSubstitutions(event, tempDir, apiKey);
+
+        //Upload to S3
+        var filesToUpload = [];
+        var bucketName = event.ResourceProperties.TargetBucket;
+        walkDir(tempDir, function(filePath) {
+          //TFilter out IgnoreFiles
+          if(event.ResourceProperties.Substitutions.IgnoreFiles && event.ResourceProperties.Substitutions.IgnoreFiles.indexOf(path.basename(filePath)) == -1){
+            var mimeType = mime.contentType(path.extname(filePath));
+            filesToUpload.push({'path': filePath, 'mimeType': mimeType});
+          }
         });
+        
+        for (const file of filesToUpload) {
+          let bucketPath = file.path.replace(`${tempDir}/`,'');
+          const params = {
+            Bucket: bucketName,
+            Key: bucketPath,
+            ACL: event.ResourceProperties.Acl,
+            ContentType: file.mimeType,
+            Body: fs.readFileSync(file.path)
+          };
+          try {
+            const stored = await s3.upload(params).promise();
+            console.log(JSON.stringify(stored));
+          } catch (err) {
+            console.log(err);
+          }
+        }
+
+        //Cleanup
+        fs.removeSync(tempDir);
+
+
+        return sendResponse(event, context.logStreamName, 'SUCCESS', {'apiKey':apiKey});
+        // getAPIKey(event.ResourceProperties.ApiKeyID)
+        // .then(function(apiKey){
+        //   returnedAPIKey = apiKey
+        //   event.ResourceProperties.Substitutions.Values.API_KEY = apiKey;
+        //   return putMetadata(event.ResourceProperties.DynamoTableName, event.ResourceProperties.PinpointProjectID)
+        // })
+        // .then(function(){
+        //   await processStaticFiles(event, context);
+        // })
+        // .then(function(){
+        //   return sendResponse(event, context.logStreamName, 'SUCCESS', {'apiKey':returnedAPIKey});
+        // })
+        // .catch(function(err){
+        //   console.log(JSON.stringify(err));
+        //   return sendResponse(event, context.logStreamName, 'FAILED', {});
+        // });
       } else {
         return sendResponse(event, context.logStreamName, 'SUCCESS', {});
       }

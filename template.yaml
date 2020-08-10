@@ -13,6 +13,7 @@ Parameters:
     Type: String
     Description: An Amazon Pinpoint Project (Application) ID if one already exists.  If specified the Preference Center will be tied to this Pinpoint Project ID.  If left blank, then a new Pinpoint Project will be created for you.
     AllowedPattern: ^[a-zA-Z0-9]*$
+    Default: "8822cc12c3b04a6ebd81f27c96b3aa64" #TODO: Remove after testing
   PinpointProjectName:
     Type: String
     Default: "My Pinpoint Project with a sample Preference Center"
@@ -128,12 +129,11 @@ Resources:
     Type: AWS::Serverless::LayerVersion
     Properties:
       CompatibleRuntimes:
-        - python3.6
-        - python3.7
+        - nodejs12.x
       Description: S3 Deployment Layer
       LayerName: !Ref AWS::StackName
       LicenseInfo: MIT
-      ContentUri: lambdas/s3-deployer
+      ContentUri: static-assets
       RetentionPolicy: Retain
       
 
@@ -141,39 +141,48 @@ Resources:
   # we use the web site assets as the source of the function
   # tricking cloudformation to pack up the web site files
   # using the standard cloudformation package process
-  PCDeployer:
+  SolutionHelperFunction:
     Type: AWS::Serverless::Function
     Properties:
       Layers: 
         - !Ref "S3DeploymentLayer"
       Description: "Copies static files to S3 during cloudformation deployment"
       FunctionName: "PreferenceCenterCopyStaticFiles"
-      CodeUri: static-assets/
+      CodeUri: lambdas/solution-helper
       AutoPublishAlias: live
-      Runtime: python3.6 
-      Handler: deployer.resource_handler
+      Runtime: nodejs12.x 
+      Handler: index.handler
       Timeout: 600
-      Policies:
-        - S3FullAccessPolicy:
-            BucketName: !Ref "StaticFiles"
+      Role:
+        Fn::GetAtt: [ BaseDataLambdaRole , "Arn" ]
 
   DeploymentResource:
     Type: AWS::CloudFormation::CustomResource
     DependsOn:
-    - ApiKey
-    - RestAPI
-    - SolutionHelperFunction
+    - "ApiKey"
+    - "DynamoDBTable"
+    - "DataTableStream"
+    - "StaticFiles"
     Properties:
-      ServiceToken: !GetAtt "PCDeployer.Arn"
-      Version: !Ref "PCDeployer.Version"
+      ServiceToken:
+         Fn::GetAtt: [ SolutionHelperFunction , "Arn" ]
+      DynamoTableName:
+        Ref: DynamoDBTable
+      PinpointProjectID: !If
+        - NeedsPinpointProjectId
+        - !Ref PinpointProject
+        - !Ref PinpointProjectId
+      ApiKeyID: 
+        Ref: ApiKey
+      Version: !Ref "SolutionHelperFunction.Version"
       TargetBucket: !Ref "StaticFiles"
       Substitutions:
-        FilePattern: "**/*"
+        FilePattern: "*.html,*.css,*.js"
+        IgnoreFiles: ".DS_Store"
         Values:
           PAGE_TITLE: !Ref "PreferenceCenterName"
           PRIMARY_COLOR: !Ref "PrimaryCSSColor"
           SECONDARY_COLOR: !Ref "SecondaryCSSColor"
-          API_KEY: !GetAtt "SetInitialValues.apiKey"
           API_URL: !Sub "https://${RestAPI}.execute-api.${AWS::Region}.amazonaws.com/prod/preferencecenter/"
       Acl: 'private'
       CacheControlMaxAge: 600
@@ -209,6 +218,11 @@ Resources:
 
   BaseDataLambdaRole:
     Type: AWS::IAM::Role
+    Metadata:
+      cfn_nag:
+        rules_to_suppress:
+            - id: W11
+              reason: "TODO: Scope this down"
     Properties:
       AssumeRolePolicyDocument:
         Version: '2012-10-17'
@@ -234,41 +248,55 @@ Resources:
               - dynamodb:PutItem 
               Resource: !GetAtt "DynamoDBTable.Arn" 
             - Effect: Allow
+              Action: "s3:PutObject"
+              Resource: !Sub 'arn:aws:s3:::${StaticFiles}/*'
+            - Effect: Allow
               Action:
               - "logs:CreateLogGroup"
               - "logs:CreateLogStream"
               - "logs:PutLogEvents"
               Resource: !Sub "arn:aws:logs:${AWS::Region}:${AWS::AccountId}:*"
 
-  SolutionHelperFunction:
-    Type: AWS::Lambda::Function
-    Properties:
-      Description: "Sets default values during initial cloudformation deployment"
-      FunctionName: "PreferenceCenterInitialValues"
-      Code: lambdas/solution-helper
-      Handler: index.handler
-      Role:
-        Fn::GetAtt: [ BaseDataLambdaRole , "Arn" ]
-      Runtime: nodejs12.x
-      Timeout: 60
+  # SolutionHelperFunction:
+  #   Type: AWS::Lambda::Function
+  #   Properties:
+  #     Description: "Sets default values during initial cloudformation deployment"
+  #     Layers: 
+  #       - !Ref "S3DeploymentLayer"
+  #     Code: lambdas/solution-helper
+  #     Handler: index.handler
+  #     Role:
+  #       Fn::GetAtt: [ BaseDataLambdaRole , "Arn" ]
+  #     Runtime: nodejs12.x
+  #     Timeout: 60
 
-  SetInitialValues:
-    Type: Custom::InitFunction
-    DependsOn:
-    - "ApiKey"
-    - "DynamoDBTable"
-    - "DataTableStream"
-    Properties:
-      ServiceToken:
-         Fn::GetAtt: [ SolutionHelperFunction , "Arn" ]
-      DynamoTableName:
-        Ref: DynamoDBTable
-      PinpointProjectID: !If
-        - NeedsPinpointProjectId
-        - !Ref PinpointProject
-        - !Ref PinpointProjectId
-      ApiKeyID: 
-        Ref: ApiKey
+  # SetInitialValues:
+  #   Type: Custom::InitFunction
+  #   DependsOn:
+  #   - "ApiKey"
+  #   - "DynamoDBTable"
+  #   - "DataTableStream"
+  #   - "StaticFiles"
+  #   Properties:
+  #     ServiceToken:
+  #        Fn::GetAtt: [ SolutionHelperFunction , "Arn" ]
+  #     DynamoTableName:
+  #       Ref: DynamoDBTable
+  #     PinpointProjectID: !If
+  #       - NeedsPinpointProjectId
+  #       - !Ref PinpointProject
+  #       - !Ref PinpointProjectId
+  #     ApiKeyID: 
+  #       Ref: ApiKey
+  #     Substitutions:
+  #       FilePattern: "*.html,*.css,*.js"
+  #       IgnoreFiles: ".DS_Store"
+  #       Values:
+  #         PAGE_TITLE: !Ref "PreferenceCenterName"
+  #         PRIMARY_COLOR: !Ref "PrimaryCSSColor"
+  #         SECONDARY_COLOR: !Ref "SecondaryCSSColor"
+  #         API_KEY: !GetAtt "SetInitialValues.apiKey"
+  #         API_URL: !Sub "https://${RestAPI}.execute-api.${AWS::Region}.amazonaws.com/prod/preferencecenter/"
 
   ################
   # Rest API
@@ -903,7 +931,7 @@ Outputs:
     Value: !GetAtt CloudFrontDistribution.DomainName
   APIKey: 
     Description: 'The API Key to use for all Preference Center API Calls'
-    Value: !GetAtt "SetInitialValues.apiKey"
+    Value: !GetAtt "DeploymentResource.apiKey"
   APIURL: 
     Description: 'The REST Endpoint for the Preference Center API'
     Value: !Sub "https://${RestAPI}.execute-api.${AWS::Region}.amazonaws.com/prod/preferencecenter/"
