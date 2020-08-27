@@ -36,6 +36,27 @@ Parameters:
 Conditions:
   NeedsPinpointProjectId: !Equals ['', !Ref PinpointProjectId]
 
+Metadata:
+  AWS::CloudFormation::Interface:
+    ParameterGroups:
+    - Label:
+        default: Section 1
+      Parameters:
+      - Param1
+    ParameterLabels:
+      Param1:
+        default: Parameter #1
+
+Mappings:
+  MetricsMap:
+    Send-Data:
+      SendAnonymousData: "Yes" # change to 'No' if needed
+
+  # SourceCode:
+  #   General:
+  #     S3Bucket: %%BUCKET_NAME%%
+  #     KeyPrefix: "%%SOLUTION_NAME%%/%%VERSION%%"
+
 Resources:
 
   PinpointProject:
@@ -163,6 +184,7 @@ Resources:
     - "DynamoDBTable"
     - "DataTableStream"
     - "StaticFiles"
+    - "HashKey"
     Properties:
       ServiceToken:
          Fn::GetAtt: [ SolutionHelperFunction , "Arn" ]
@@ -174,6 +196,8 @@ Resources:
         - !Ref PinpointProjectId
       ApiKeyID: 
         Ref: ApiKey
+      SecretARN:
+        Ref: HashKey
       Version: !Ref "SolutionHelperFunction.Version"
       TargetBucket: !Ref "StaticFiles"
       Substitutions:
@@ -218,11 +242,6 @@ Resources:
 
   BaseDataLambdaRole:
     Type: AWS::IAM::Role
-    Metadata:
-      cfn_nag:
-        rules_to_suppress:
-            - id: W11
-              reason: "TODO: Scope this down"
     Properties:
       AssumeRolePolicyDocument:
         Version: '2012-10-17'
@@ -241,8 +260,12 @@ Resources:
             Statement:
             - Effect: Allow
               Action: 
+              - "secretsmanager:GetSecretValue"
+              Resource: !Ref HashKey
+            - Effect: Allow
+              Action: 
               - apigateway:GET 
-              Resource: "*" # TODO...tried this, but can't get this to work: !Sub "arn:aws:apigateway:${AWS::Region}:${AWS::AccountId}:*"
+              Resource: !Sub "arn:aws:apigateway:${AWS::Region}::/apikeys/${ApiKey}"
             - Effect: Allow
               Action:
               - dynamodb:PutItem 
@@ -256,47 +279,6 @@ Resources:
               - "logs:CreateLogStream"
               - "logs:PutLogEvents"
               Resource: !Sub "arn:aws:logs:${AWS::Region}:${AWS::AccountId}:*"
-
-  # SolutionHelperFunction:
-  #   Type: AWS::Lambda::Function
-  #   Properties:
-  #     Description: "Sets default values during initial cloudformation deployment"
-  #     Layers: 
-  #       - !Ref "S3DeploymentLayer"
-  #     Code: lambdas/solution-helper
-  #     Handler: index.handler
-  #     Role:
-  #       Fn::GetAtt: [ BaseDataLambdaRole , "Arn" ]
-  #     Runtime: nodejs12.x
-  #     Timeout: 60
-
-  # SetInitialValues:
-  #   Type: Custom::InitFunction
-  #   DependsOn:
-  #   - "ApiKey"
-  #   - "DynamoDBTable"
-  #   - "DataTableStream"
-  #   - "StaticFiles"
-  #   Properties:
-  #     ServiceToken:
-  #        Fn::GetAtt: [ SolutionHelperFunction , "Arn" ]
-  #     DynamoTableName:
-  #       Ref: DynamoDBTable
-  #     PinpointProjectID: !If
-  #       - NeedsPinpointProjectId
-  #       - !Ref PinpointProject
-  #       - !Ref PinpointProjectId
-  #     ApiKeyID: 
-  #       Ref: ApiKey
-  #     Substitutions:
-  #       FilePattern: "*.html,*.css,*.js"
-  #       IgnoreFiles: ".DS_Store"
-  #       Values:
-  #         PAGE_TITLE: !Ref "PreferenceCenterName"
-  #         PRIMARY_COLOR: !Ref "PrimaryCSSColor"
-  #         SECONDARY_COLOR: !Ref "SecondaryCSSColor"
-  #         API_KEY: !GetAtt "SetInitialValues.apiKey"
-  #         API_URL: !Sub "https://${RestAPI}.execute-api.${AWS::Region}.amazonaws.com/prod/preferencecenter/"
 
   ################
   # Rest API
@@ -669,7 +651,6 @@ Resources:
     Properties:
       Code: lambdas/stream-processor
       Description: "Preference Center DynamoDB Stream Handler"
-      FunctionName: "preferenceCenterStreamProcessor"
       Handler: "index.handler"
       MemorySize: 512
       Role: !GetAtt "StreamLambdaRole.Arn"
@@ -741,12 +722,22 @@ Resources:
   ################
   # Preference Center Lambda Function
   ################
+
+  HashKey:
+    Type: 'AWS::SecretsManager::Secret'
+    Properties:
+      Description: "Hash Key used to hash user-id in preference center URLs"
+      GenerateSecretString:
+        SecretStringTemplate: '{"app": "pc"}'
+        GenerateStringKey: "hashkey"
+        PasswordLength: 30
+        ExcludePunctuation: true
+
   lambdaFunction:
     Type: "AWS::Lambda::Function"
     Properties:
       Code: lambdas/rest-api-handler
       Description: "Preference Center Handler"
-      FunctionName: "PreferenceCenterHandler"
       Handler: "index.handler"
       MemorySize: 512
       Role: !GetAtt "lambdaIAMRole.Arn"
@@ -877,6 +868,7 @@ Resources:
     Type: "AWS::CloudFront::Distribution"
     DependsOn:
     - LogBucket
+    - LambdaEdgeFunction
     Metadata:
       cfn_nag:
         rules_to_suppress:
@@ -909,6 +901,9 @@ Resources:
                 SmoothStreaming: false
                 TargetOriginId: s3origin
                 ViewerProtocolPolicy: "redirect-to-https"
+                LambdaFunctionAssociations:
+                - EventType: viewer-response
+                  LambdaFunctionARN: !Ref LambdaEdgeFunctionVersion
             Comment: ""
             PriceClass: "PriceClass_All"
             Enabled: true
@@ -925,6 +920,53 @@ Resources:
                 IncludeCookies: true
                 Prefix: 'pinpoint-preference-center-cloudfront'
 
+  LambdaEdgeFunction:
+    Type: AWS::Lambda::Function
+    Properties:
+      Code: lambdas/secure-header-edge-function
+      Role: !GetAtt LambdaEdgeFunctionIAMRole.Arn
+      Runtime: "nodejs12.x"
+      Handler: index.handler
+      MemorySize: 128
+      Timeout: 5
+
+  LambdaEdgeFunctionVersion:
+    Type: 'AWS::Lambda::Version'
+    DeletionPolicy: Retain
+    Properties:
+      FunctionName: !Ref LambdaEdgeFunction
+
+  LambdaEdgeFunctionIAMRole:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: 2012-10-17
+        Statement:
+        - Effect: Allow
+          Principal:
+            Service:
+            - edgelambda.amazonaws.com
+            - lambda.amazonaws.com
+          Action: sts:AssumeRole
+
+  LambdaEdgeFunctionIAMRoleAllowLogging:
+    Type: AWS::IAM::Policy
+    Properties:
+      Roles:
+      - !Ref LambdaEdgeFunctionIAMRole
+      PolicyName: AllowLogging
+      PolicyDocument:
+        Version: 2012-10-17
+        Statement:
+        - Effect: Allow
+          Action:
+          - logs:CreateLogGroup
+          - logs:CreateLogStream
+          - logs:PutLogEvents
+          Resource:
+          - !Sub arn:aws:logs:*:${AWS::AccountId}:log-group:/aws/lambda/${LambdaEdgeFunction}
+          - !Sub arn:aws:logs:*:${AWS::AccountId}:log-group:/aws/lambda/${LambdaEdgeFunction}:*
+
 Outputs:
   Domain:
     Description: 'Cloudfront Domain'
@@ -932,6 +974,9 @@ Outputs:
   APIKey: 
     Description: 'The API Key to use for all Preference Center API Calls'
     Value: !GetAtt "DeploymentResource.apiKey"
+  HashKey: 
+    Description: 'The Hash Key to hash the userID in the Preference Center URLS'
+    Value: !GetAtt "DeploymentResource.hashKey"
   APIURL: 
     Description: 'The REST Endpoint for the Preference Center API'
     Value: !Sub "https://${RestAPI}.execute-api.${AWS::Region}.amazonaws.com/prod/preferencecenter/"

@@ -1,6 +1,7 @@
 const AWS = require('aws-sdk');
 const dynamo = new AWS.DynamoDB.DocumentClient();
 const s3 = new AWS.S3();
+const secretsmanager = new AWS.SecretsManager();
 const url = require('url');
 const https = require('https');
 const fs = require('fs-extra');
@@ -47,6 +48,24 @@ function getAPIKey(apiKeyID) {
         console.log("getAPIKey Success");
         console.log(ApiKeyData.value);      // successful response
         resolve(ApiKeyData.value);
+      }
+    });
+  });
+}
+
+function getHashKey(secretARN) {
+  return new Promise(function(resolve,reject){
+    console.log("getHashKey");
+    var params = {
+      SecretId: secretARN
+    };
+    secretsmanager.getSecretValue(params, function(err, data) {
+      if (err) {
+        console.log(err, err.stack); // an error occurred
+        reject(err);
+      }
+      else {
+        resolve(JSON.parse(data.SecretString).hashkey);
       }
     });
   });
@@ -135,6 +154,7 @@ exports.handler =  async (event, context, callback) => {
         var tempDir = `/tmp/${context.awsRequestId}`;
 
         let apiKey = await getAPIKey(event.ResourceProperties.ApiKeyID);
+        let hashKey = await getHashKey(event.ResourceProperties.SecretARN);
         let metadataResults = await putMetadata(event.ResourceProperties.DynamoTableName, event.ResourceProperties.PinpointProjectID);
 
         //Inject apiKey
@@ -174,7 +194,7 @@ exports.handler =  async (event, context, callback) => {
         fs.removeSync(tempDir);
 
 
-        return sendResponse(event, context.logStreamName, 'SUCCESS', {'apiKey':apiKey});
+        return sendResponse(event, context.logStreamName, 'SUCCESS', {'apiKey':apiKey, 'hashKey':hashKey});
         // getAPIKey(event.ResourceProperties.ApiKeyID)
         // .then(function(apiKey){
         //   returnedAPIKey = apiKey
