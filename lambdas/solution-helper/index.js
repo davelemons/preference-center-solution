@@ -8,16 +8,18 @@ const fs = require('fs-extra');
 const path = require('path');
 const replace = require('replace-in-file');
 const mime = require('mime-types');
+const crypto = require('crypto');
+const lambda = new AWS.Lambda({'region':'us-east-1'}); //Need edge functions to goto us-east-1
+// const JSZip = require("jszip");
 
-function putMetadata(tableName, projectID) {
+function putMetadata(tableName, projectID, hashKey) {
   return new Promise(function(resolve,reject){
     console.log("putMetadata");
 
     var params = require('./metadata-template.json');
     params.TableName = tableName;
     params.Item.projectID = projectID;
-
-    console.log(params);
+    params.Item.hashKey = hashKey;
 
     dynamo.put(params, function(err, data) { 
       if (err) {
@@ -53,23 +55,88 @@ function getAPIKey(apiKeyID) {
   });
 }
 
-function getHashKey(secretARN) {
-  return new Promise(function(resolve,reject){
-    console.log("getHashKey");
-    var params = {
-      SecretId: secretARN
-    };
-    secretsmanager.getSecretValue(params, function(err, data) {
-      if (err) {
-        console.log(err, err.stack); // an error occurred
-        reject(err);
-      }
-      else {
-        resolve(JSON.parse(data.SecretString).hashkey);
-      }
-    });
-  });
-}
+// function buildEdgeFunction(roleARN, edgeFunctionName){
+//   return new Promise(function(resolve,reject){
+//     try{
+//       console.log("lambda_create_function")
+        
+//       var zip = new JSZip();
+//       var lambdaCode = `'use strict';
+
+// exports.handler = async (event, context, callback) => {
+// const response = event.Records[0].cf.response;
+// const headers = response.headers;
+
+// headers['Strict-Transport-Security'] = [{
+//   key: 'Strict-Transport-Security',
+//   value: 'max-age=63072000; includeSubDomains; preload',
+// }];
+
+// headers['X-XSS-Protection'] = [{
+//   key: 'X-XSS-Protection',
+//   value: '1; mode=block',
+// }];
+
+// headers['X-Content-Type-Options'] = [{
+//   key: 'X-Content-Type-Options',
+//   value: 'nosniff',
+// }];
+
+// // headers['X-Frame-Options'] = [{
+// //     key: 'X-Frame-Options',
+// //     value: 'SAMEORIGIN',
+// // }];
+
+// headers['Referrer-Policy'] = [{ key: 'Referrer-Policy', value: 'no-referrer-when-downgrade' }];
+
+// headers['Content-Security-Policy'] = [{
+//   key: 'Content-Security-Policy',
+//   value: 'upgrade-insecure-requests;',
+// }];
+
+// callback(null, response);
+// };`
+
+//       zip.file("index.js", lambdaCode);
+
+//       zip.generateNodeStream({type:'nodebuffer',streamFiles:true})
+//       .pipe(fs.createWriteStream('tmp/function.zip'))
+//       .on('finish', function () {
+//           // JSZip generates a readable stream with a "end" event,
+//           // but is piped here in a writable stream which emits a "finish" event.
+//           console.log("function.zip written.");
+
+//           var params = {
+//             Code: {
+//               ZipFile: fs.readFileSync('tmp/function.zip')
+//             }, 
+//             Description: "Preference Cener Lambda Edge Function", 
+//             FunctionName: edgeFunctionName, 
+//             Handler: "index.handler", 
+//             MemorySize: 128, 
+//             Publish: true, 
+//             Role: roleARN, 
+//             Runtime: "nodejs12.x", 
+//             Timeout: 5
+//           };
+
+//           lambda.createFunction(params, function(err, data) {
+//             if (err) {
+//               console.log(err, err.stack); // an error occurred
+//               reject(err);
+//             } else {
+//               console.log(data); // successful response
+//               resolve(`${data.FunctionArn}:${data.Version}`)
+//             }   
+//           })
+
+//       });
+//     } catch (err){
+//       console.log(err);
+//       reject(err);
+//     }
+//   });
+// }
 
 function walkDir(dir, callback) {
   fs.readdirSync(dir).forEach( f => {
@@ -153,10 +220,14 @@ exports.handler =  async (event, context, callback) => {
 
         var tempDir = `/tmp/${context.awsRequestId}`;
 
-        let apiKey = await getAPIKey(event.ResourceProperties.ApiKeyID);
-        let hashKey = await getHashKey(event.ResourceProperties.SecretARN);
-        let metadataResults = await putMetadata(event.ResourceProperties.DynamoTableName, event.ResourceProperties.PinpointProjectID);
+        // Note: this is just being used to hash the User.UserId in the url
+        // to prevent url walking to mine preference center data. It's not a critical
+        // secret and the customer should be able to change it if needed.
+        var hashKey = crypto.randomBytes(20).toString('hex');
 
+        let apiKey = await getAPIKey(event.ResourceProperties.ApiKeyID);
+        let metadataResults = await putMetadata(event.ResourceProperties.DynamoTableName, event.ResourceProperties.PinpointProjectID, hashKey);
+        // let edgeFunctionVersionARN = await buildEdgeFunction(event.ResourceProperties.EdgeFunctionRoleARN, event.ResourceProperties.EdgeFunctionName);
         //Inject apiKey
         event.ResourceProperties.Substitutions.Values.API_KEY = apiKey;
 
@@ -193,24 +264,8 @@ exports.handler =  async (event, context, callback) => {
         //Cleanup
         fs.removeSync(tempDir);
 
-
         return sendResponse(event, context.logStreamName, 'SUCCESS', {'apiKey':apiKey, 'hashKey':hashKey});
-        // getAPIKey(event.ResourceProperties.ApiKeyID)
-        // .then(function(apiKey){
-        //   returnedAPIKey = apiKey
-        //   event.ResourceProperties.Substitutions.Values.API_KEY = apiKey;
-        //   return putMetadata(event.ResourceProperties.DynamoTableName, event.ResourceProperties.PinpointProjectID)
-        // })
-        // .then(function(){
-        //   await processStaticFiles(event, context);
-        // })
-        // .then(function(){
-        //   return sendResponse(event, context.logStreamName, 'SUCCESS', {'apiKey':returnedAPIKey});
-        // })
-        // .catch(function(err){
-        //   console.log(JSON.stringify(err));
-        //   return sendResponse(event, context.logStreamName, 'FAILED', {});
-        // });
+
       } else {
         return sendResponse(event, context.logStreamName, 'SUCCESS', {});
       }

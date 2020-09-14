@@ -10,9 +10,10 @@ const dynamo = new AWS.DynamoDB.DocumentClient();
 const pinpoint = new AWS.Pinpoint({region: process.env.REGION});
 const { v4: uuidv4 } = require('uuid');
 const moment = require('moment')
-var xss = require("xss");
+const xss = require("xss");
 const xssOptions = {'stripIgnoreTag':true,'stripIgnoreTagBody':true}; // Specifiy Custom XSS Options here
 const sanitizer = new xss.FilterXSS(xssOptions);
+const crypto = require('crypto');
 
 /*****************
  * Helper Functions
@@ -116,11 +117,38 @@ function getUserEndpoints(projectID, userID) {
         pinpoint.getUserEndpoints(params, function(err, data) {
             if (err) {
                 console.log(err, err.stack); 
+                reject(err);
             } else {
                 resolve(data.EndpointsResponse.Item);
             }
         });
     });
+}
+
+ /**
+ * Validates the provided hash to make sure it matches our hash key
+ * @param  {String} userID The User.UserID hashed with the hash key
+ * @param  {String} providedHash The provided hash
+ * @param  {String} hashKey The Hash key for the given preference center
+ * @return {boolean} A boolean indicating if the provided hash is valid
+ */
+function validateHash(userID, providedHash, hashKey) {
+  if (userID && providedHash && hashKey) {
+    var hashValue = `${userID}+${hashKey}`;
+
+    var hash = crypto.createHash('sha256')
+    .update(hashValue)
+    .digest('hex');
+
+    if (providedHash == hash) {
+      return true;
+    } else {
+      return false;
+    }
+
+  } else {
+    return false
+  }
 }
 
  /**
@@ -229,11 +257,21 @@ exports.handler =  (event, context, callback) => {
         switch (event.httpMethod) {
             case 'GET':
                 if (event.pathParameters && projectID) {
-                    if(event.pathParameters.userID){
-                        //requesting an enpoint
+                    if(event.queryStringParameters && event.queryStringParameters.h && event.pathParameters.userID){
+                        //requesting an endpoint
                         var endpoints = []
                         var userID = event.pathParameters.userID
-                        getUserEndpoints(projectID, userID)
+                        var hash = event.queryStringParameters.h
+
+                        getMetadata(projectID, preferenceCenterID)
+                        .then(function(returnedMetadata) {
+                            if (validateHash(userID, hash, returnedMetadata.hashKey)){
+                              return getUserEndpoints(projectID, userID);
+                            } else {
+                              console.error("Invalid Hash!");
+                              done(null, endpoints); //Just send back empty endpoints array
+                            }
+                        })
                         .then(function(returnedEndpoints) {
                             endpoints = returnedEndpoints
                             pinpointEvents[projectID] = createPinpointEvent(preferenceCenterID, 'preferenceCenter_getUser', {}, {'userID':userID})
@@ -258,6 +296,7 @@ exports.handler =  (event, context, callback) => {
                                 return processEvents(projectID, pinpointEvents)
                             })
                             .then(function(){
+                              delete metadata.hashKey; //strip this off
                               done(null, metadata);
                             }).catch(function(e) {
                                 console.log(e);

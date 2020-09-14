@@ -4,9 +4,7 @@
     "projectID": "",
     "websiteURL": "http://aws.amazon.com",
     "unsubscribe": {
-      "surveyQuestions": ["I no longer want to receive these emails", "I never signed up for this mailing list", "The emails are inappropriate", "The emails are spam and should be reported", "Other (fill in reason below)"],
-      "enabled": true,
-      "surveyEnabled": true
+      "enabled": true
     },
     "categories": [{
       "name": "Newsletters",

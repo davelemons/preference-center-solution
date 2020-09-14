@@ -3,6 +3,7 @@ const baseURL = '${API_URL}'
 const projectID = getParameterByName('pid') 
 const preferenceCenterID = getParameterByName('pcid') 
 const userID = getParameterByName('uid')
+const hash = getParameterByName('h')
 
 var metadata = {}
 var endpoints = []
@@ -96,7 +97,7 @@ function getEndpoints () {
   return new Promise(function (resolve, reject) {
     if (projectID) {
       // Update mode
-      var requestUrl = baseURL + projectID + '/users/' + userID
+      var requestUrl = baseURL + projectID + '/users/' + userID + '?pcid=' + preferenceCenterID + '&h=' + hash
       $.ajax({
         url: requestUrl,
         type: 'GET',
@@ -133,8 +134,6 @@ function loadUser () {
   })
 
   // User Attributes
-  // TODO: need to figure out which endpoint we grab data off of...using first one for now
-  // Ryan said this is okay.
   if (endpoints.length) {
     var userAttributes = endpoints[0].User.UserAttributes
 
@@ -334,7 +333,6 @@ function readFormData () {
             if ($(this).prop('checked')) {
               tmpAttributes[property].push($(this).val())
 
-              // TODO: Question for Team...Confirm we want to do this:
               // If the user opted in to a publication and they were unsubscribed, then set their OptOut flag back to All
               var selectedChannel = $(this).val()
               endpoints.forEach(function (endpoint, index) {
@@ -347,9 +345,7 @@ function readFormData () {
     })
   })
 
-  // Update endpoint Users Attributes  TODO: Do we update all, or only update appropriate one if endpoint id is passed
-  // TODO: do we want to make it configurable if user or endpoint attributes are updated?
-  // Okay to store everything as user attributes
+  // Update endpoint Users Attributes 
   endpoints.forEach(function (endpoint, index) {
     endpoint.User.UserAttributes = tmpAttributes
   })
@@ -455,7 +451,6 @@ function registerEvents () {
         $(this).prop('checked', false)
       })
 
-      // TODO: Question for Team...Confirm we want to do this:
       endpoints.forEach(function (endpoint, index) {
         endpoint.OptOut = 'ALL'
       })
