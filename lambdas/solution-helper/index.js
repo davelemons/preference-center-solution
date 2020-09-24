@@ -9,8 +9,7 @@ const path = require('path');
 const replace = require('replace-in-file');
 const mime = require('mime-types');
 const crypto = require('crypto');
-const lambda = new AWS.Lambda({'region':'us-east-1'}); //Need edge functions to goto us-east-1
-// const JSZip = require("jszip");
+
 
 function putMetadata(tableName, projectID, hashKey) {
   return new Promise(function(resolve,reject){
@@ -54,89 +53,6 @@ function getAPIKey(apiKeyID) {
     });
   });
 }
-
-// function buildEdgeFunction(roleARN, edgeFunctionName){
-//   return new Promise(function(resolve,reject){
-//     try{
-//       console.log("lambda_create_function")
-        
-//       var zip = new JSZip();
-//       var lambdaCode = `'use strict';
-
-// exports.handler = async (event, context, callback) => {
-// const response = event.Records[0].cf.response;
-// const headers = response.headers;
-
-// headers['Strict-Transport-Security'] = [{
-//   key: 'Strict-Transport-Security',
-//   value: 'max-age=63072000; includeSubDomains; preload',
-// }];
-
-// headers['X-XSS-Protection'] = [{
-//   key: 'X-XSS-Protection',
-//   value: '1; mode=block',
-// }];
-
-// headers['X-Content-Type-Options'] = [{
-//   key: 'X-Content-Type-Options',
-//   value: 'nosniff',
-// }];
-
-// // headers['X-Frame-Options'] = [{
-// //     key: 'X-Frame-Options',
-// //     value: 'SAMEORIGIN',
-// // }];
-
-// headers['Referrer-Policy'] = [{ key: 'Referrer-Policy', value: 'no-referrer-when-downgrade' }];
-
-// headers['Content-Security-Policy'] = [{
-//   key: 'Content-Security-Policy',
-//   value: 'upgrade-insecure-requests;',
-// }];
-
-// callback(null, response);
-// };`
-
-//       zip.file("index.js", lambdaCode);
-
-//       zip.generateNodeStream({type:'nodebuffer',streamFiles:true})
-//       .pipe(fs.createWriteStream('tmp/function.zip'))
-//       .on('finish', function () {
-//           // JSZip generates a readable stream with a "end" event,
-//           // but is piped here in a writable stream which emits a "finish" event.
-//           console.log("function.zip written.");
-
-//           var params = {
-//             Code: {
-//               ZipFile: fs.readFileSync('tmp/function.zip')
-//             }, 
-//             Description: "Preference Cener Lambda Edge Function", 
-//             FunctionName: edgeFunctionName, 
-//             Handler: "index.handler", 
-//             MemorySize: 128, 
-//             Publish: true, 
-//             Role: roleARN, 
-//             Runtime: "nodejs12.x", 
-//             Timeout: 5
-//           };
-
-//           lambda.createFunction(params, function(err, data) {
-//             if (err) {
-//               console.log(err, err.stack); // an error occurred
-//               reject(err);
-//             } else {
-//               console.log(data); // successful response
-//               resolve(`${data.FunctionArn}:${data.Version}`)
-//             }   
-//           })
-
-//       });
-//     } catch (err){
-//       console.log(err);
-//       reject(err);
-//     }
-//   });
-// }
 
 function walkDir(dir, callback) {
   fs.readdirSync(dir).forEach( f => {
@@ -227,7 +143,6 @@ exports.handler =  async (event, context, callback) => {
 
         let apiKey = await getAPIKey(event.ResourceProperties.ApiKeyID);
         let metadataResults = await putMetadata(event.ResourceProperties.DynamoTableName, event.ResourceProperties.PinpointProjectID, hashKey);
-        // let edgeFunctionVersionARN = await buildEdgeFunction(event.ResourceProperties.EdgeFunctionRoleARN, event.ResourceProperties.EdgeFunctionName);
         //Inject apiKey
         event.ResourceProperties.Substitutions.Values.API_KEY = apiKey;
 

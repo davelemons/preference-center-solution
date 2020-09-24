@@ -9,11 +9,12 @@ const AWS = require('aws-sdk');
 const dynamo = new AWS.DynamoDB.DocumentClient();
 const pinpoint = new AWS.Pinpoint({region: process.env.REGION});
 const { v4: uuidv4 } = require('uuid');
-const moment = require('moment')
+const moment = require('moment');
 const xss = require("xss");
 const xssOptions = {'stripIgnoreTag':true,'stripIgnoreTagBody':true}; // Specifiy Custom XSS Options here
 const sanitizer = new xss.FilterXSS(xssOptions);
 const crypto = require('crypto');
+const { Validator } = require('node-input-validator');
 
 /*****************
  * Helper Functions
@@ -34,14 +35,16 @@ function createPinpointEvent (preferenceCenterID, eventType, endpoint, attribute
   var customEvent = {
     Endpoint: endpoint,
     Events: {}
-  }
+  };
+  
+  //console.log(JSON.stringify(customEvent,null,2))
 
   customEvent.Events[`preferenceCenter_${preferenceCenterID}`] = {
     EventType: eventType,
     Timestamp: moment().toISOString(),
     Attributes: attributes
-  }
-  return customEvent
+  };
+  return customEvent;
 }
 
  /**
@@ -59,17 +62,19 @@ function processEvents (projectId, events) {
       EventsRequest: {
         BatchItem: events
       }
-    }
+    };
+    
+    console.log(JSON.stringify(params,null,2))
 
     pinpoint.putEvents(params, function (err) {
       if (err) {
-        console.log(err, err.stack)
-        resolve() // Just going to log and return
+        console.log(err, err.stack);
+        resolve(); // Just going to log and return
       } else {
-        resolve()
+        resolve();
       }
-    })
-  })
+    });
+  });
 }
 
  /**
@@ -147,7 +152,7 @@ function validateHash(userID, providedHash, hashKey) {
     }
 
   } else {
-    return false
+    return false;
   }
 }
 
@@ -155,9 +160,10 @@ function validateHash(userID, providedHash, hashKey) {
  * Upserts a collection of endpoints synchronously to avoid hammering the API
  * @param  {String} projectId The pinpoint application/project id to associate the events with
  * @param  {Object[]} endpoints The endpoints to upsert
+ * @param  {Object} metadata The metadata so we can do input validation
  * @return {Promise} A Promise object that returns the User.ID.  If it was a new user then this will contain the UUID that was generated
  */
-function upsertEndpoints(projectID, endpoints) {
+function upsertEndpoints(projectID, endpoints, metadata) {
   return new Promise((resolve, reject) => {
 
       var userID = '';
@@ -170,7 +176,7 @@ function upsertEndpoints(projectID, endpoints) {
       //Run these synchronously so we don't hammer the API  
       endpoints.reduce( (previousPromise, nextEndpoint) => {
         return previousPromise.then(() => {
-          return upsertEndpoint(projectID, userID, nextEndpoint);
+          return upsertEndpoint(projectID, userID, nextEndpoint, metadata);
         });
       }, Promise.resolve())
       .then(()=>{
@@ -187,9 +193,10 @@ function upsertEndpoints(projectID, endpoints) {
  * @param  {String} projectId The pinpoint application/project id to associate the events with
  * @param  {String} [userID=UUID] - userID The User.UserID to retrieve will default to new UUID if not specified
  * @param  {Object[]} endpoints The endpoints to upsert
+ * @param  {Object} metadata The metadata so we can do input validation
  * @return {Promise} A Promise object that contatins a collection of user endpoints
  */
-function upsertEndpoint(projectID, userID, endpoint) {
+function upsertEndpoint(projectID, userID, endpoint, metadata) {
   return new Promise((resolve, reject) => {
 
       var endpointID = endpoint.Id || uuidv4(); //New Endpoint, go generate a UUID
@@ -209,18 +216,62 @@ function upsertEndpoint(projectID, userID, endpoint) {
           endpoint.User.UserAttributes[property][index] = sanitizer.process(value);
         });
       }
+      
+      //Validate Inputs
+      var dataToValidate = {};
+      var validationRules = {};
+      
+      console.log(endpoint);
+      
+        //available channels
+        metadata.availableChannels.forEach(function(availableChannel) {
+            if (availableChannel.id == endpoint.ChannelType) {
+                dataToValidate[endpoint.ChannelType] = endpoint.Address;
+                validationRules[endpoint.ChannelType] = availableChannel.serverMask;
+            }
+        });
+        
+        //publications
+        metadata.categories.forEach(function(category) {
+            category.publications.forEach(function(publication) {
+                validationRules[publication.id] = 'array';
+                validationRules[`${publication.id}.*`] = 'alpha';
+            });
+        });
+        
+        //attributes
+        metadata.attributes.forEach(function(attribute) {
+            validationRules[attribute.id] = 'array';
+            validationRules[`${attribute.id}.*`] = attribute.serverMask;
+            for (const property in endpoint.User.UserAttributes) {
+                dataToValidate[property] = endpoint.User.UserAttributes[property];
+            }
+        });
+        
+        console.log(JSON.stringify(dataToValidate, null, 2));
+        console.log(JSON.stringify(validationRules, null, 2));
+      
+      const v = new Validator(dataToValidate, validationRules);
      
-      var params = {
-        ApplicationId: projectID,
-        EndpointId: endpointID,
-        EndpointRequest: endpoint
-      };
-      pinpoint.updateEndpoint(params, function(err, data) {
-          if (err) {
-              console.log(err, err.stack); 
-          } else {
-              resolve(data);
-          }
+      v.check().then(function (matched) {
+        if (matched === true) {
+            var params = {
+                ApplicationId: projectID,
+                EndpointId: endpointID,
+                EndpointRequest: endpoint
+              };
+              pinpoint.updateEndpoint(params, function(err, data) {
+                  if (err) {
+                      console.log(err, err.stack); 
+                  } else {
+                      resolve(data);
+                  }
+            });
+        } else {
+            //validation errors
+            console.log("Input Validation Errors:", JSON.stringify(v.errors, null, 2));
+            reject(new Error(`Input Validation Errors: ${JSON.stringify(v.errors, null, 2)}`));
+        }
       });
   });
 }
@@ -250,18 +301,18 @@ exports.handler =  (event, context, callback) => {
 
     try {
         var preferenceCenterID = event.queryStringParameters && event.queryStringParameters.pcid ? event.queryStringParameters.pcid : 'default';
-        var metadata = {}
-        var pinpointEvents = {}
-        var projectID = event.pathParameters.projectID
+        var metadata = {};
+        var pinpointEvents = {};
+        var projectID = event.pathParameters.projectID;
+        var endpoints = [];
 
         switch (event.httpMethod) {
             case 'GET':
                 if (event.pathParameters && projectID) {
                     if(event.queryStringParameters && event.queryStringParameters.h && event.pathParameters.userID){
                         //requesting an endpoint
-                        var endpoints = []
-                        var userID = event.pathParameters.userID
-                        var hash = event.queryStringParameters.h
+                        var userID = event.pathParameters.userID;
+                        var hash = event.queryStringParameters.h;
 
                         getMetadata(projectID, preferenceCenterID)
                         .then(function(returnedMetadata) {
@@ -273,9 +324,9 @@ exports.handler =  (event, context, callback) => {
                             }
                         })
                         .then(function(returnedEndpoints) {
-                            endpoints = returnedEndpoints
-                            pinpointEvents[projectID] = createPinpointEvent(preferenceCenterID, 'preferenceCenter_getUser', {}, {'userID':userID})
-                            return processEvents(projectID, pinpointEvents)
+                            endpoints = returnedEndpoints;
+                            pinpointEvents[projectID] = createPinpointEvent(preferenceCenterID, 'preferenceCenter_getUser', {}, {'userID':userID});
+                            return processEvents(projectID, pinpointEvents);
                         })
                         .then(function (){
                             done(null, endpoints);
@@ -291,9 +342,9 @@ exports.handler =  (event, context, callback) => {
                             //requesting preference center metadata
                             getMetadata(projectID, preferenceCenterID)
                             .then(function(returnedMetadata) {
-                                metadata = returnedMetadata
-                                pinpointEvents[projectID] = createPinpointEvent(preferenceCenterID, 'preferenceCenter_open')
-                                return processEvents(projectID, pinpointEvents)
+                                metadata = returnedMetadata;
+                                pinpointEvents[projectID] = createPinpointEvent(preferenceCenterID, 'preferenceCenter_open');
+                                return processEvents(projectID, pinpointEvents);
                             })
                             .then(function(){
                               delete metadata.hashKey; //strip this off
@@ -310,26 +361,28 @@ exports.handler =  (event, context, callback) => {
                 break;
             case 'PUT':
                 if (event.pathParameters){
-                  var endpoints = JSON.parse(event.body);
-                    
-                  upsertEndpoints(projectID, endpoints)
+                  endpoints = JSON.parse(event.body);
+                  
+                  getMetadata(projectID, preferenceCenterID)
+                  .then(function(returnedMetadata) {
+                      return upsertEndpoints(projectID, endpoints, returnedMetadata);
+                  })
                   .then(function(userID) {
                       return getUserEndpoints(projectID, userID);
                   })
                   .then(function(returnedEndpoints) {
-                      endpoints = returnedEndpoints
+                      endpoints = returnedEndpoints;
                       endpoints.forEach(endpoint => {
-                        //TODO: review with Ryan and Ilya to see why I have to do this...also review this event looks good.
                         //Remove following attributes...they were part of Get, but the Update doesn't like them
-                        var endpointId = endpoint.Id //TODO, need to take it off, then add it back on
+                        var endpointId = endpoint.Id; //Need to take it off, then add it back on
                         delete endpoint.ApplicationId;
                         delete endpoint.CohortId;
                         delete endpoint.CreationDate;
                         delete endpoint.Id; 
-                        pinpointEvents[projectID] = createPinpointEvent(preferenceCenterID, 'preferenceCenter_updateEndpoint', endpoint, {})
-                        endpoint.Id = endpointId //TODO: need to find another way to do this.
+                        pinpointEvents[projectID] = createPinpointEvent(preferenceCenterID, 'preferenceCenter_updateEndpoint', endpoint, {});
+                        endpoint.Id = endpointId; //TODO: need to find another way to do this.
                       });
-                      return processEvents(projectID, pinpointEvents)
+                      return processEvents(projectID, pinpointEvents);
                   }).then(function(){
                       done(null, endpoints);
                   }).catch(function(e) {

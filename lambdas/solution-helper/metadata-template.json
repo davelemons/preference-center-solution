@@ -38,14 +38,16 @@
       "inputType": "text",
       "id": "firstName",
       "required": true,
-      "inputPlaceholder": "Jane"
+      "inputPlaceholder": "Jane",
+      "serverMask": "alphaNumeric"
     }, {
       "inputLabel": "Last Name",
       "description": "Please enter your Last Name",
       "inputType": "text",
       "id": "lastName",
       "required": true,
-      "inputPlaceholder": "Doe"
+      "inputPlaceholder": "Doe",
+      "serverMask": "alphaNumeric"
     }, {
       "inputLabel": "Communication Preference",
       "options": [{
@@ -60,7 +62,8 @@
       "description": "How would you like for us to contact you?",
       "inputType": "radio",
       "id": "preferredChannel",
-      "required": false
+      "required": false,
+      "serverMask": "alpha"
     }, {
       "inputLabel": "Where do you Shop?",
       "options": [{
@@ -91,7 +94,8 @@
       "description": "",
       "inputType": "select",
       "id": "shoppingPreference",
-      "required": false
+      "required": false,
+      "serverMask": "alpha"
     }, {
       "inputLabel": "Favorite Activities",
       "options": [{
@@ -114,7 +118,8 @@
       "description": "What is your favorite outdoor activity?",
       "inputType": "checkbox",
       "id": "favoriteActivity",
-      "required": false
+      "required": false,
+      "serverMask": "alpha"
     }],
     "text": {
       "inputValidationMessages": {
@@ -147,7 +152,8 @@
       "id": "EMAIL",
       "inputMask": "'alias': 'email'",
       "required": true,
-      "inputPlaceholder": ""
+      "inputPlaceholder": "",
+      "serverMask": "required|email"
     }, {
       "displayName": "SMS",
       "inputLabel": "Mobile Phone Number",
@@ -156,7 +162,8 @@
       "id": "SMS",
       "inputMask": "'mask': '+1(999) 999-9999'",
       "required": false,
-      "inputPlaceholder": "(206) 555-0199"
+      "inputPlaceholder": "(206) 555-0199",
+      "serverMask": "required|phoneNumber"
     }],
     "description": "Preference center for Accent Athletics",
     "preferenceCenterID": "default"

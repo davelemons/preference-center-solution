@@ -168,7 +168,6 @@ Resources:
       Layers: 
         - !Ref "S3DeploymentLayer"
       Description: "Copies static files to S3 during cloudformation deployment"
-      FunctionName: "PreferenceCenterCopyStaticFiles"
       CodeUri: lambdas/solution-helper
       AutoPublishAlias: live
       Runtime: nodejs12.x 
@@ -194,8 +193,6 @@ Resources:
         - NeedsPinpointProjectId
         - !Ref PinpointProject
         - !Ref PinpointProjectId
-      # EdgeFunctionRoleARN: !GetAtt LambdaEdgeFunctionIAMRole.Arn
-      EdgeFunctionName: !Sub "preference-center-lambda-edge-function-${AWS::StackId}"
       ApiKeyID: 
         Ref: ApiKey
       # SecretARN:
@@ -260,10 +257,6 @@ Resources:
           PolicyDocument:
             Version: '2012-10-17'
             Statement:
-            # - Effect: Allow
-            #   Action: 
-            #   - "secretsmanager:GetSecretValue"
-            #   Resource: !Ref HashKey
             - Effect: Allow
               Action: 
               - apigateway:GET 
@@ -848,6 +841,85 @@ Resources:
   ################
   # CloudFront Distribution
   ################
+
+  LambdaEdgeRole:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Action:
+              - "sts:AssumeRole"
+            Effect: "Allow"
+            Principal:
+              Service:
+                - "lambda.amazonaws.com"
+      Policies:
+        - PolicyName: LambdaEdgeRole
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+            - Effect: Allow
+              Action:
+              - "logs:CreateLogGroup"
+              - "logs:CreateLogStream"
+              - "logs:PutLogEvents"
+              Resource: !Sub "arn:aws:logs:${AWS::Region}:${AWS::AccountId}:*"
+            - Effect: Allow
+              Action:
+              - "lambda:CreateFunction"
+              - "lambda:PublishVersion"
+              Resource: !Sub "arn:aws:lambda:us-east-1:${AWS::AccountId}:function:*"
+            - Effect: Allow
+              Action:
+              - "iam:PassRole"
+              Resource: !GetAtt LambdaEdgeFunctionIAMRole.Arn 
+
+  LambdaEdgeFunctionIAMRole:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: 2012-10-17
+        Statement:
+        - Effect: Allow
+          Principal:
+            Service:
+            - edgelambda.amazonaws.com
+            - lambda.amazonaws.com
+          Action: sts:AssumeRole
+      Policies:
+        - PolicyName: LambdaEdgeFunctionIAMRole
+          PolicyDocument:
+            Version: 2012-10-17
+            Statement:
+            - Effect: Allow
+              Action:
+              - logs:CreateLogGroup
+              - logs:CreateLogStream
+              - logs:PutLogEvents
+              Resource: !Sub "arn:aws:logs:${AWS::Region}:${AWS::AccountId}:*"
+
+  SolutionHelperFunctionEdge:
+    Type: AWS::Serverless::Function
+    Properties:
+      Description: "Creates Lambda Edge Function"
+      CodeUri: lambdas/solution-helper-lambdaedge
+      AutoPublishAlias: live
+      Runtime: nodejs12.x 
+      Handler: index.handler
+      Timeout: 600
+      Role:
+        Fn::GetAtt: [ LambdaEdgeRole , "Arn" ]
+
+  EdgeDeploymentResource:
+    Type: AWS::CloudFormation::CustomResource
+    Properties:
+      ServiceToken:
+         Fn::GetAtt: [ SolutionHelperFunctionEdge , "Arn" ]
+      EdgeFunctionRoleARN: !GetAtt LambdaEdgeFunctionIAMRole.Arn
+      EdgeFunctionName: "preference-center-lambda-edge-function"
+
+
   ReadPolicy:
     Type: 'AWS::S3::BucketPolicy'
     Properties:
@@ -870,7 +942,7 @@ Resources:
     Type: "AWS::CloudFront::Distribution"
     DependsOn:
     - LogBucket
-    # - DeploymentResource
+    - EdgeDeploymentResource
     Metadata:
       cfn_nag:
         rules_to_suppress:
@@ -903,9 +975,9 @@ Resources:
                 SmoothStreaming: false
                 TargetOriginId: s3origin
                 ViewerProtocolPolicy: "redirect-to-https"
-                # LambdaFunctionAssociations:
-                # - EventType: viewer-response
-                #   LambdaFunctionARN: !GetAtt "DeploymentResource.edgeFunctionVersionARN"
+                LambdaFunctionAssociations:
+                - EventType: viewer-response
+                  LambdaFunctionARN: !GetAtt "EdgeDeploymentResource.edgeFunctionVersionARN"
             Comment: ""
             PriceClass: "PriceClass_All"
             Enabled: true
@@ -986,9 +1058,6 @@ Outputs:
   Domain:
     Description: 'Cloudfront Domain'
     Value: !GetAtt CloudFrontDistribution.DomainName
-  EdgeFunctionName: 
-    Description: 'TODO: Remove'
-    Value: !Sub "preference-center-lambda-edge-function-${AWS::StackId}"
   APIKey: 
     Description: 'The API Key to use for all Preference Center API Calls'
     Value: !GetAtt "DeploymentResource.apiKey"
