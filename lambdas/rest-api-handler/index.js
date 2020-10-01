@@ -64,7 +64,7 @@ function processEvents (projectId, events) {
       }
     };
     
-    console.log(JSON.stringify(params,null,2))
+    console.log(JSON.stringify(params,null,2));
 
     pinpoint.putEvents(params, function (err) {
       if (err) {
@@ -221,13 +221,11 @@ function upsertEndpoint(projectID, userID, endpoint, metadata) {
       var dataToValidate = {};
       var validationRules = {};
       
-      console.log(endpoint);
-      
         //available channels
         metadata.availableChannels.forEach(function(availableChannel) {
             if (availableChannel.id == endpoint.ChannelType) {
                 dataToValidate[endpoint.ChannelType] = endpoint.Address;
-                validationRules[endpoint.ChannelType] = availableChannel.serverMask;
+                validationRules[endpoint.ChannelType] = availableChannel.serverMask || 'string'; //default to string validation
             }
         });
         
@@ -242,14 +240,11 @@ function upsertEndpoint(projectID, userID, endpoint, metadata) {
         //attributes
         metadata.attributes.forEach(function(attribute) {
             validationRules[attribute.id] = 'array';
-            validationRules[`${attribute.id}.*`] = attribute.serverMask;
+            validationRules[`${attribute.id}.*`] = attribute.serverMask || 'string'; //default to string validation
             for (const property in endpoint.User.UserAttributes) {
                 dataToValidate[property] = endpoint.User.UserAttributes[property];
             }
         });
-        
-        console.log(JSON.stringify(dataToValidate, null, 2));
-        console.log(JSON.stringify(validationRules, null, 2));
       
       const v = new Validator(dataToValidate, validationRules);
      
@@ -373,14 +368,14 @@ exports.handler =  (event, context, callback) => {
                   .then(function(returnedEndpoints) {
                       endpoints = returnedEndpoints;
                       endpoints.forEach(endpoint => {
+                          
+                        let clonedEndpoint = { ... endpoint }; //Make a copy, so we don't mess up the original
                         //Remove following attributes...they were part of Get, but the Update doesn't like them
-                        var endpointId = endpoint.Id; //Need to take it off, then add it back on
-                        delete endpoint.ApplicationId;
-                        delete endpoint.CohortId;
-                        delete endpoint.CreationDate;
-                        delete endpoint.Id; 
-                        pinpointEvents[projectID] = createPinpointEvent(preferenceCenterID, 'preferenceCenter_updateEndpoint', endpoint, {});
-                        endpoint.Id = endpointId; //TODO: need to find another way to do this.
+                        delete clonedEndpoint.ApplicationId;
+                        delete clonedEndpoint.CohortId;
+                        delete clonedEndpoint.CreationDate;
+                        delete clonedEndpoint.Id; 
+                        pinpointEvents[projectID] = createPinpointEvent(preferenceCenterID, 'preferenceCenter_updateEndpoint', clonedEndpoint, {});
                       });
                       return processEvents(projectID, pinpointEvents);
                   }).then(function(){
