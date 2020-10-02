@@ -15,6 +15,7 @@ const xssOptions = {'stripIgnoreTag':true,'stripIgnoreTagBody':true}; // Specifi
 const sanitizer = new xss.FilterXSS(xssOptions);
 const crypto = require('crypto');
 const { Validator } = require('node-input-validator');
+const axios = require('axios');
 
 /*****************
  * Helper Functions
@@ -271,6 +272,30 @@ function upsertEndpoint(projectID, userID, endpoint, metadata) {
   });
 }
 
+function sendAnonymousMetric(metric) {
+  return new Promise((resolve, reject) => {
+
+    const options = {
+      url: 'https://metrics.awssolutionsbuilder.com/generic',
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json'
+      },
+      data: metric
+    };
+
+    axios(options)
+    .then(function (response) {
+      console.log(JSON.stringify(response.data, null, 2));
+      resolve({});
+    })
+    .catch(function (error) {
+      console.log(error);
+      resolve(error); //Ignoring as I don't want metric failures to stop normal pricing
+    });
+  });
+}
+
 /*****************
  * Main Lambda Function
  *****************/
@@ -342,6 +367,17 @@ exports.handler =  (event, context, callback) => {
                                 return processEvents(projectID, pinpointEvents);
                             })
                             .then(function(){
+                                if (process.env.SEND_ANONYMOUS_DATA === 'Yes') {
+                                    let metric = {
+                                        Solution: process.env.SOLUTION_ID,
+                                        UUID: process.env.SOLUTION_UUID,
+                                        TimeStamp: moment().utc().format('YYYY-MM-DD HH:mm:ss.S'),
+                                        preferenceCenter_opens: 1
+                                    };
+                                    return sendAnonymousMetric(metric);
+                                }
+                            })
+                            .then(function(){
                               delete metadata.hashKey; //strip this off
                               done(null, metadata);
                             }).catch(function(e) {
@@ -378,11 +414,37 @@ exports.handler =  (event, context, callback) => {
                         pinpointEvents[projectID] = createPinpointEvent(preferenceCenterID, 'preferenceCenter_updateEndpoint', clonedEndpoint, {});
                       });
                       return processEvents(projectID, pinpointEvents);
-                  }).then(function(){
+                  })
+                  .then(function(){
+                        if (process.env.SEND_ANONYMOUS_DATA === 'Yes') {
+                            let metric = {
+                                Solution: process.env.SOLUTION_ID,
+                                UUID: process.env.SOLUTION_UUID,
+                                TimeStamp: moment().utc().format('YYYY-MM-DD HH:mm:ss.S'),
+                                preferenceCenter_updateEndpoint: 1
+                            };
+                            return sendAnonymousMetric(metric);
+                        }
+                  })
+                  .then(function(){
                       done(null, endpoints);
                   }).catch(function(e) {
-                      console.log(e);
-                      done(e);
+                      console.error(e);
+                      if (process.env.SEND_ANONYMOUS_DATA === 'Yes') {
+                            let metric = {
+                                Solution: process.env.SOLUTION_ID,
+                                UUID: process.env.SOLUTION_UUID,
+                                TimeStamp: moment().utc().format('YYYY-MM-DD HH:mm:ss.S'),
+                                preferenceCenter_errors: 1
+                            };
+                            sendAnonymousMetric(metric)
+                            .then(function(){
+                                done(e);
+                            })
+                            .catch(function(e){
+                                done(e);
+                            });
+                        }
                   });
                 }
                 break;
