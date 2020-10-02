@@ -750,6 +750,7 @@ Resources:
       Timeout: 10
       Environment:  
         Variables:
+          LOG_LEVEL: "info"
           CORS_DOMAIN: !Sub 
             - "https://${corsDomain}"
             - corsDomain: !GetAtt CloudFrontDistribution.DomainName

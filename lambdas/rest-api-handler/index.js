@@ -16,6 +16,7 @@ const sanitizer = new xss.FilterXSS(xssOptions);
 const crypto = require('crypto');
 const { Validator } = require('node-input-validator');
 const axios = require('axios');
+var log = require('loglevel');
 
 /*****************
  * Helper Functions
@@ -38,7 +39,7 @@ function createPinpointEvent (preferenceCenterID, eventType, endpoint, attribute
     Events: {}
   };
   
-  //console.log(JSON.stringify(customEvent,null,2))
+  log.debug(JSON.stringify(customEvent,null,2));
 
   customEvent.Events[`preferenceCenter_${preferenceCenterID}`] = {
     EventType: eventType,
@@ -65,11 +66,11 @@ function processEvents (projectId, events) {
       }
     };
     
-    console.log(JSON.stringify(params,null,2));
+    log.debug(JSON.stringify(params,null,2));
 
     pinpoint.putEvents(params, function (err) {
       if (err) {
-        console.log(err, err.stack);
+        log.error(err, err.stack);
         resolve(); // Just going to log and return
       } else {
         resolve();
@@ -85,6 +86,7 @@ function processEvents (projectId, events) {
  * @return {Promise} A Promise object that contatins the metadata retrieved from DynamoDB
  */
 function getMetadata(projectID, preferenceCenterID) {
+  log.trace("getUserEndpoints...");
     return new Promise((resolve, reject) => {        
         var params = {
             TableName: METADATA_TABLE,
@@ -94,13 +96,15 @@ function getMetadata(projectID, preferenceCenterID) {
             }
         };
         
+        log.trace(params);
 
         dynamo.get(params, function(err, metadata) {
             if (err) {
-                console.log(err);
+                log.error(err);
                 reject(err);
             }
             else {
+                log.debug(metadata.Item);
                 resolve(metadata.Item);
             }
         });
@@ -114,17 +118,21 @@ function getMetadata(projectID, preferenceCenterID) {
  * @return {Promise} A Promise object that contatins a collection of user endpoints
  */
 function getUserEndpoints(projectID, userID) {
+    log.trace("getUserEndpoints...");
     return new Promise((resolve, reject) => {
 
         var params = {
             ApplicationId: projectID,
             UserId: userID
         };
+
+        log.trace(params);
         pinpoint.getUserEndpoints(params, function(err, data) {
             if (err) {
-                console.log(err, err.stack); 
+                log.error(err, err.stack); 
                 reject(err);
             } else {
+                log.debug(data.EndpointsResponse.Item);
                 resolve(data.EndpointsResponse.Item);
             }
         });
@@ -139,6 +147,7 @@ function getUserEndpoints(projectID, userID) {
  * @return {boolean} A boolean indicating if the provided hash is valid
  */
 function validateHash(userID, providedHash, hashKey) {
+  log.trace("validateHash...");
   if (userID && providedHash && hashKey) {
     var hashValue = `${userID}+${hashKey}`;
 
@@ -147,8 +156,10 @@ function validateHash(userID, providedHash, hashKey) {
     .digest('hex');
 
     if (providedHash == hash) {
+      log.debug("Valid Hash!");
       return true;
     } else {
+      log.warn("Invalid Hash!");
       return false;
     }
 
@@ -165,6 +176,7 @@ function validateHash(userID, providedHash, hashKey) {
  * @return {Promise} A Promise object that returns the User.ID.  If it was a new user then this will contain the UUID that was generated
  */
 function upsertEndpoints(projectID, endpoints, metadata) {
+  log.trace("upsertEndpoints...");
   return new Promise((resolve, reject) => {
 
       var userID = '';
@@ -181,8 +193,10 @@ function upsertEndpoints(projectID, endpoints, metadata) {
         });
       }, Promise.resolve())
       .then(()=>{
+        log.debug(userID);
         resolve(userID);
       }).catch((err)=>{
+        log.error(err);
         reject(err);
       });
 
@@ -198,6 +212,7 @@ function upsertEndpoints(projectID, endpoints, metadata) {
  * @return {Promise} A Promise object that contatins a collection of user endpoints
  */
 function upsertEndpoint(projectID, userID, endpoint, metadata) {
+  log.trace("upsertEndpoint...");
   return new Promise((resolve, reject) => {
 
       var endpointID = endpoint.Id || uuidv4(); //New Endpoint, go generate a UUID
@@ -256,16 +271,20 @@ function upsertEndpoint(projectID, userID, endpoint, metadata) {
                 EndpointId: endpointID,
                 EndpointRequest: endpoint
               };
+
+              log.trace(JSON.stringify(params,null,2));
+
               pinpoint.updateEndpoint(params, function(err, data) {
                   if (err) {
-                      console.log(err, err.stack); 
+                      log.error(err, err.stack); 
                   } else {
+                      log.debug(data);
                       resolve(data);
                   }
             });
         } else {
             //validation errors
-            console.log("Input Validation Errors:", JSON.stringify(v.errors, null, 2));
+            log.error("Input Validation Errors:", JSON.stringify(v.errors, null, 2));
             reject(new Error(`Input Validation Errors: ${JSON.stringify(v.errors, null, 2)}`));
         }
       });
@@ -273,6 +292,7 @@ function upsertEndpoint(projectID, userID, endpoint, metadata) {
 }
 
 function sendAnonymousMetric(metric) {
+  log.trace("sendAnonymousMetric...");
   return new Promise((resolve, reject) => {
 
     const options = {
@@ -284,13 +304,15 @@ function sendAnonymousMetric(metric) {
       data: metric
     };
 
+    log.trace(JSON.stringify(options,null,2));
+
     axios(options)
     .then(function (response) {
-      console.log(JSON.stringify(response.data, null, 2));
+      log.debug(JSON.stringify(response.data, null, 2));
       resolve({});
     })
     .catch(function (error) {
-      console.log(error);
+      log.error(error);
       resolve(error); //Ignoring as I don't want metric failures to stop normal pricing
     });
   });
@@ -307,7 +329,8 @@ function sendAnonymousMetric(metric) {
  * @param  {Object[]} callback The lambda callback method to execute when the function completes
  */
 exports.handler =  (event, context, callback) => {
-    console.log('Received event:', JSON.stringify(event, null, 2));
+    log.setLevel(process.env.LOG_LEVEL);
+    log.info('Received event:', JSON.stringify(event, null, 2));
 
     const done = (err, res) => callback(null, {
         statusCode: err ? '500' : '200',
@@ -331,8 +354,11 @@ exports.handler =  (event, context, callback) => {
                 if (event.pathParameters && projectID) {
                     if(event.queryStringParameters && event.queryStringParameters.h && event.pathParameters.userID){
                         //requesting an endpoint
+                        
                         var userID = event.pathParameters.userID;
                         var hash = event.queryStringParameters.h;
+
+                        log.debug("Requesting Endpoint: ",userID);
 
                         getMetadata(projectID, preferenceCenterID)
                         .then(function(returnedMetadata) {
@@ -349,9 +375,10 @@ exports.handler =  (event, context, callback) => {
                             return processEvents(projectID, pinpointEvents);
                         })
                         .then(function (){
+                            log.debug("Finished Requesting Endpoint: ",userID);
                             done(null, endpoints);
                         }).catch(function(e) {
-                            console.log(e);
+                            log.error(e);
                             done(e);
                         });
                     } else {
@@ -359,7 +386,7 @@ exports.handler =  (event, context, callback) => {
                             //no user specified, so must be opt-in.  Return empty endpoints array
                             done(null, []);
                         } else {
-                            //requesting preference center metadata
+                            log.debug("Requesting Metadata: ",projectID," ", preferenceCenterID);
                             getMetadata(projectID, preferenceCenterID)
                             .then(function(returnedMetadata) {
                                 metadata = returnedMetadata;
@@ -379,9 +406,10 @@ exports.handler =  (event, context, callback) => {
                             })
                             .then(function(){
                               delete metadata.hashKey; //strip this off
+                              log.debug("Finished Requesting Metadata:");
                               done(null, metadata);
                             }).catch(function(e) {
-                                console.log(e);
+                                log.error(e);
                                 done(e);
                             });
                         }
@@ -393,6 +421,7 @@ exports.handler =  (event, context, callback) => {
             case 'PUT':
                 if (event.pathParameters){
                   endpoints = JSON.parse(event.body);
+                  log.debug("Saving Endpoints:");
                   
                   getMetadata(projectID, preferenceCenterID)
                   .then(function(returnedMetadata) {
@@ -427,6 +456,7 @@ exports.handler =  (event, context, callback) => {
                         }
                   })
                   .then(function(){
+                      log.debug("Finished Saving Endpoints:");
                       done(null, endpoints);
                   }).catch(function(e) {
                       console.error(e);
@@ -452,7 +482,7 @@ exports.handler =  (event, context, callback) => {
                 done(new Error(`Unsupported method "${event.httpMethod}"`));
         }
     } catch (err) {
-        console.log(err);
+        log.error(err);
         done({ "status": "error", "message": "Unhandled Error." });
     }
 };
