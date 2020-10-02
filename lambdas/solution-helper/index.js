@@ -1,7 +1,7 @@
 const AWS = require('aws-sdk');
 const dynamo = new AWS.DynamoDB.DocumentClient();
+const lambda = new AWS.Lambda({'region':'us-east-1'}); //Need edge functions to goto us-east-1
 const s3 = new AWS.S3();
-const secretsmanager = new AWS.SecretsManager();
 const url = require('url');
 const https = require('https');
 const fs = require('fs-extra');
@@ -9,7 +9,13 @@ const path = require('path');
 const replace = require('replace-in-file');
 const mime = require('mime-types');
 const crypto = require('crypto');
+const { v4: uuidv4 } = require('uuid');
+const JSZip = require("jszip");
+const shortid = require('shortid');
 
+/****************
+ * Helper Functions
+ */
 
 function putMetadata(tableName, projectID, hashKey) {
   return new Promise(function(resolve,reject){
@@ -128,59 +134,162 @@ function fileSubstitutions(event, tempDir) {
   });
 }
 
+function buildEdgeFunction(roleARN, edgeFunctionName){
+  return new Promise(function(resolve,reject){
+    try{
+      console.log("lambda_create_function");
+        
+      var zip = new JSZip();
+      var lambdaCode = `'use strict';
+
+exports.handler = async (event, context, callback) => {
+const response = event.Records[0].cf.response;
+const headers = response.headers;
+
+headers['Strict-Transport-Security'] = [{
+  key: 'Strict-Transport-Security',
+  value: 'max-age=63072000; includeSubDomains; preload',
+}];
+
+headers['X-XSS-Protection'] = [{
+  key: 'X-XSS-Protection',
+  value: '1; mode=block',
+}];
+
+headers['X-Content-Type-Options'] = [{
+  key: 'X-Content-Type-Options',
+  value: 'nosniff',
+}];
+
+// headers['X-Frame-Options'] = [{
+//     key: 'X-Frame-Options',
+//     value: 'SAMEORIGIN',
+// }];
+
+headers['Referrer-Policy'] = [{ key: 'Referrer-Policy', value: 'no-referrer-when-downgrade' }];
+
+headers['Content-Security-Policy'] = [{
+  key: 'Content-Security-Policy',
+  value: 'upgrade-insecure-requests;',
+}];
+
+callback(null, response);
+};`;
+
+      zip.file("index.js", lambdaCode);
+
+      zip.generateNodeStream({type:'nodebuffer',streamFiles:true})
+      .pipe(fs.createWriteStream('/tmp/function.zip'))
+      .on('finish', function () {
+          // JSZip generates a readable stream with a "end" event,
+          // but is piped here in a writable stream which emits a "finish" event.
+          console.log("function.zip written.");
+
+          var params = {
+            Code: {
+              ZipFile: fs.readFileSync('/tmp/function.zip')
+            }, 
+            Description: "Preference Center Lambda Edge Function", 
+            FunctionName: edgeFunctionName, 
+            Handler: "index.handler", 
+            MemorySize: 128, 
+            Publish: true, 
+            Role: roleARN, 
+            Runtime: "nodejs12.x", 
+            Timeout: 5
+          };
+
+          lambda.createFunction(params, function(err, data) {
+            if (err) {
+              console.log(err, err.stack); // an error occurred
+              reject(err);
+            } else {
+              console.log(data); // successful response
+              resolve(`${data.FunctionArn}:${data.Version}`);
+            }   
+          });
+
+      });
+    } catch (err){
+      console.log(err);
+      reject(err);
+    }
+  });
+}
+
+/****************
+ * Main
+ */
+
 exports.handler =  async (event, context, callback) => {
     console.log('Received event:', JSON.stringify(event, null, 2));
 
     try{
       if (event.RequestType == 'Create' || event.RequestType == 'Update'){
 
-        var tempDir = `/tmp/${context.awsRequestId}`;
+        switch (event.ResourceProperties.customAction) {
+          case 'createUuid':
+            return sendResponse(event, context.logStreamName, 'SUCCESS', {'solutionUUID': uuidv4()});
 
-        // Note: this is just being used to hash the User.UserId in the url
-        // to prevent url walking to mine preference center data. It's not a critical
-        // secret and the customer should be able to change it if needed.
-        var hashKey = crypto.randomBytes(20).toString('hex');
+          case 'putMetadata':
+            // Note: this is just being used to hash the User.UserId in the url
+            // to prevent url walking to mine preference center data. It's not a critical
+            // secret and the customer should be able to change it if needed.
+            var hashKey = crypto.randomBytes(20).toString('hex');
+            let metadataResults = await putMetadata(event.ResourceProperties.DynamoTableName, event.ResourceProperties.PinpointProjectID, hashKey);
+            return sendResponse(event, context.logStreamName, 'SUCCESS', {'hashKey':hashKey});
 
-        let apiKey = await getAPIKey(event.ResourceProperties.ApiKeyID);
-        let metadataResults = await putMetadata(event.ResourceProperties.DynamoTableName, event.ResourceProperties.PinpointProjectID, hashKey);
-        //Inject apiKey
-        event.ResourceProperties.Substitutions.Values.API_KEY = apiKey;
+          case 'getAPIKey':
+            let apiKey = await getAPIKey(event.ResourceProperties.ApiKeyID);
+            return sendResponse(event, context.logStreamName, 'SUCCESS', {'apiKey':apiKey});
 
-        let fileSubstitutionResults = await fileSubstitutions(event, tempDir, apiKey);
-
-        //Upload to S3
-        var filesToUpload = [];
-        var bucketName = event.ResourceProperties.TargetBucket;
-        walkDir(tempDir, function(filePath) {
-          //TFilter out IgnoreFiles
-          if(event.ResourceProperties.Substitutions.IgnoreFiles && event.ResourceProperties.Substitutions.IgnoreFiles.indexOf(path.basename(filePath)) == -1){
-            var mimeType = mime.contentType(path.extname(filePath));
-            filesToUpload.push({'path': filePath, 'mimeType': mimeType});
-          }
-        });
+          case 'deployEdgeFunction':
+            let edgeFunctionVersionARN = await buildEdgeFunction(event.ResourceProperties.EdgeFunctionRoleARN, `${event.ResourceProperties.EdgeFunctionName}-${shortid.generate()}`);
+            //let edgeFunctionVersionARN = await buildEdgeFunction(event.ResourceProperties.EdgeFunctionRoleARN, event.ResourceProperties.EdgeFunctionName);
+            return sendResponse(event, context.logStreamName, 'SUCCESS', {'edgeFunctionVersionARN':edgeFunctionVersionARN});      
+          
+          case 'putStaticFiles':
+            var tempDir = `/tmp/${context.awsRequestId}`;
+            event.ResourceProperties.Substitutions.Values.API_KEY = event.ResourceProperties.ApiKey;
+            let fileSubstitutionResults = await fileSubstitutions(event, tempDir, event.ResourceProperties.ApiKey);
         
-        for (const file of filesToUpload) {
-          let bucketPath = file.path.replace(`${tempDir}/`,'');
-          const params = {
-            Bucket: bucketName,
-            Key: bucketPath,
-            ACL: event.ResourceProperties.Acl,
-            ContentType: file.mimeType,
-            Body: fs.readFileSync(file.path)
-          };
-          try {
-            const stored = await s3.upload(params).promise();
-            console.log(JSON.stringify(stored));
-          } catch (err) {
-            console.log(err);
-          }
+            //Upload to S3
+            var filesToUpload = [];
+            var bucketName = event.ResourceProperties.TargetBucket;
+            walkDir(tempDir, function(filePath) {
+              //TFilter out IgnoreFiles
+              if(event.ResourceProperties.Substitutions.IgnoreFiles && event.ResourceProperties.Substitutions.IgnoreFiles.indexOf(path.basename(filePath)) == -1){
+                var mimeType = mime.contentType(path.extname(filePath));
+                filesToUpload.push({'path': filePath, 'mimeType': mimeType});
+              }
+            });
+            
+            for (const file of filesToUpload) {
+              let bucketPath = file.path.replace(`${tempDir}/`,'');
+              const params = {
+                Bucket: bucketName,
+                Key: bucketPath,
+                ACL: event.ResourceProperties.Acl,
+                ContentType: file.mimeType,
+                Body: fs.readFileSync(file.path)
+              };
+              try {
+                const stored = await s3.upload(params).promise();
+                console.log(JSON.stringify(stored));
+              } catch (err) {
+                console.log(err);
+              }
+            }
+
+            //Cleanup
+            fs.removeSync(tempDir);
+
+            return sendResponse(event, context.logStreamName, 'SUCCESS', {});
+
+          default:
+            return sendResponse(event, context.logStreamName, 'SUCCESS', {});
+
         }
-
-        //Cleanup
-        fs.removeSync(tempDir);
-
-        return sendResponse(event, context.logStreamName, 'SUCCESS', {'apiKey':apiKey, 'hashKey':hashKey});
-
       } else {
         return sendResponse(event, context.logStreamName, 'SUCCESS', {});
       }
