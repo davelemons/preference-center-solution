@@ -13,7 +13,7 @@ Parameters:
     Type: String
     Description: An Amazon Pinpoint Project (Application) ID if one already exists.  If specified the Preference Center will be tied to this Pinpoint Project ID.  If left blank, then a new Pinpoint Project will be created for you.
     AllowedPattern: ^[a-zA-Z0-9]*$
-    Default: "1aa20d5ade5c4699a5df45ddad370a10" #TODO: Remove after testing
+    Default: "" #TODO: Remove after testing
   PinpointProjectName:
     Type: String
     Default: "My Pinpoint Project with a sample Preference Center"
@@ -905,13 +905,14 @@ Resources:
     Type: 'AWS::CloudFront::CloudFrontOriginAccessIdentity'
     Properties:
       CloudFrontOriginAccessIdentityConfig:
-        Comment: !Ref StaticFiles
+        Comment: !GetAtt StaticFiles.RegionalDomainName
 
   CloudFrontDistribution:
     Type: "AWS::CloudFront::Distribution"
     DependsOn:
     - LogBucket
     - DeployLambdaEdgeFunction
+    - CloudFrontOriginAccessIdentity
     Metadata:
       cfn_nag:
         rules_to_suppress:
@@ -920,8 +921,8 @@ Resources:
     Properties:
         DistributionConfig: 
             Origins:
-            - DomainName: !GetAtt 'StaticFiles.DomainName'
-              Id: s3origin
+            - DomainName: !GetAtt 'StaticFiles.RegionalDomainName'
+              Id:  !GetAtt StaticFiles.RegionalDomainName
               S3OriginConfig:
                 OriginAccessIdentity: !Sub 'origin-access-identity/cloudfront/${CloudFrontOriginAccessIdentity}'
             DefaultCacheBehavior: 
@@ -934,15 +935,15 @@ Resources:
                 - HEAD
                 - OPTIONS
                 Compress: true
-                DefaultTTL: 3600
+                DefaultTTL: 60
                 ForwardedValues: 
                     Cookies: 
                         Forward: "none"
                     QueryString: false
                 MaxTTL: 86400
-                MinTTL: 60
+                MinTTL: 0
                 SmoothStreaming: false
-                TargetOriginId: s3origin
+                TargetOriginId: !GetAtt StaticFiles.RegionalDomainName
                 ViewerProtocolPolicy: "redirect-to-https"
                 LambdaFunctionAssociations:
                 - EventType: viewer-response
@@ -958,6 +959,7 @@ Resources:
                     RestrictionType: "none"
             HttpVersion: "http2"
             IPV6Enabled: true
+            DefaultRootObject: index.html
             Logging:
                 Bucket: !GetAtt 'LogBucket.DomainName'
                 IncludeCookies: true
