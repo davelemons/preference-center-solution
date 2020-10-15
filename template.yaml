@@ -5,7 +5,6 @@
 #
 # author: davelem@
 AWSTemplateFormatVersion: 2010-09-09
-Transform: 'AWS::Serverless-2016-10-31'
 Description: Automaticaly provision and configure the AWS services necessary to host a Preference Center that allows end users to manage their communiction preferences.
 
 Parameters:
@@ -149,26 +148,24 @@ Resources:
         LogFilePrefix: pinpoint-preference-center-s3/
 
   S3DeploymentLayer:
-    Type: AWS::Serverless::LayerVersion
+    Type: AWS::Lambda::LayerVersion
     Properties:
       CompatibleRuntimes:
         - nodejs12.x
       Description: S3 Deployment Layer
       LayerName: !Ref AWS::StackName
       LicenseInfo: MIT
-      ContentUri: static-assets
-      RetentionPolicy: Retain
+      Content: static-assets
       
-
   # Solution Helpers
-  SolutionHelperFunction:
-    Type: AWS::Serverless::Function
+  SolutionHelper:
+    Type: AWS::Lambda::Function
     Properties:
       Layers: 
         - !Ref "S3DeploymentLayer"
       Description: "Provides Methods to assist in Solution Deployment"
-      CodeUri: lambdas/solution-helper
-      AutoPublishAlias: live
+      Code: lambdas/solution-helper
+      # AutoPublishAlias: live
       Runtime: nodejs12.x 
       Handler: index.handler
       Timeout: 600
@@ -178,7 +175,7 @@ Resources:
   GetAPIKey:
     Type: Custom::LoadLambda
     Properties:
-      ServiceToken: !GetAtt SolutionHelperFunction.Arn
+      ServiceToken: !GetAtt SolutionHelper.Arn
       customAction: getAPIKey
       ApiKeyID: 
         Ref: ApiKey
@@ -186,7 +183,7 @@ Resources:
   PutStaticFiles:
     Type: Custom::LoadLambda
     Properties:
-      ServiceToken: !GetAtt SolutionHelperFunction.Arn
+      ServiceToken: !GetAtt SolutionHelper.Arn
       customAction: putStaticFiles
       ApiKey: !GetAtt GetAPIKey.apiKey
       TargetBucket: !Ref "StaticFiles"
@@ -235,7 +232,7 @@ Resources:
     - "DynamoDBTable"
     Type: Custom::LoadLambda
     Properties:
-      ServiceToken: !GetAtt SolutionHelperFunction.Arn
+      ServiceToken: !GetAtt SolutionHelper.Arn
       customAction: putMetadata
       DynamoTableName:
         Ref: DynamoDBTable
@@ -332,7 +329,7 @@ Resources:
               x-amazon-apigateway-integration:
                 uri: !Sub
                   - "arn:aws:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/${lambdaArn}/invocations"
-                  - lambdaArn: !GetAtt "lambdaFunction.Arn"
+                  - lambdaArn: !GetAtt "APIHandler.Arn"
                 responses:
                   default:
                     statusCode: "200"
@@ -397,7 +394,7 @@ Resources:
               x-amazon-apigateway-integration:
                 uri: !Sub
                   - "arn:aws:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/${lambdaArn}/invocations"
-                  - lambdaArn: !GetAtt "lambdaFunction.Arn"
+                  - lambdaArn: !GetAtt "APIHandler.Arn"
                 responses:
                   default:
                     statusCode: "200"
@@ -430,7 +427,7 @@ Resources:
               x-amazon-apigateway-integration:
                 uri: !Sub
                   - "arn:aws:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/${lambdaArn}/invocations"
-                  - lambdaArn: !GetAtt "lambdaFunction.Arn"
+                  - lambdaArn: !GetAtt "APIHandler.Arn"
                 responses:
                   default:
                     statusCode: "200"
@@ -499,7 +496,7 @@ Resources:
               x-amazon-apigateway-integration:
                 uri: !Sub
                   - "arn:aws:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/${lambdaArn}/invocations"
-                  - lambdaArn: !GetAtt "lambdaFunction.Arn"
+                  - lambdaArn: !GetAtt "APIHandler.Arn"
                 responses:
                   default:
                     statusCode: "200"
@@ -655,7 +652,7 @@ Resources:
   ################
   # DynamoDB Stream Lambda Function
   ################
-  StreamFunction:
+  DynamoDBStreamHandler:
     Type: "AWS::Lambda::Function"
     Properties:
       Code: lambdas/stream-processor
@@ -725,7 +722,7 @@ Resources:
       BatchSize: 1 
       Enabled: True
       EventSourceArn: !GetAtt "DynamoDBTable.StreamArn"
-      FunctionName: !GetAtt "StreamFunction.Arn"
+      FunctionName: !GetAtt "DynamoDBStreamHandler.Arn"
       StartingPosition: LATEST 
 
   ################
@@ -735,10 +732,10 @@ Resources:
   CreateUniqueID:
     Type: Custom::LoadLambda
     Properties:
-      ServiceToken: !GetAtt SolutionHelperFunction.Arn
+      ServiceToken: !GetAtt SolutionHelper.Arn
       customAction: createUuid
 
-  lambdaFunction:
+  APIHandler:
     Type: "AWS::Lambda::Function"
     Properties:
       Code: lambdas/rest-api-handler
@@ -768,7 +765,7 @@ Resources:
     - RestAPI
     Properties:
       Action: "lambda:InvokeFunction"
-      FunctionName: !GetAtt "lambdaFunction.Arn"
+      FunctionName: !GetAtt "APIHandler.Arn"
       Principal: "apigateway.amazonaws.com"
       SourceArn: !Sub "arn:aws:execute-api:${AWS::Region}:${AWS::AccountId}:${RestAPI}/*/GET/preferencecenter/*"
 
@@ -778,7 +775,7 @@ Resources:
     - RestAPI
     Properties:
       Action: "lambda:InvokeFunction"
-      FunctionName: !GetAtt "lambdaFunction.Arn"
+      FunctionName: !GetAtt "APIHandler.Arn"
       Principal: "apigateway.amazonaws.com"
       SourceArn: !Sub "arn:aws:execute-api:${AWS::Region}:${AWS::AccountId}:${RestAPI}/*/GET/preferencecenter/*/users"
 
@@ -788,7 +785,7 @@ Resources:
     - RestAPI
     Properties:
       Action: "lambda:InvokeFunction"
-      FunctionName: !GetAtt "lambdaFunction.Arn"
+      FunctionName: !GetAtt "APIHandler.Arn"
       Principal: "apigateway.amazonaws.com"
       SourceArn: !Sub "arn:aws:execute-api:${AWS::Region}:${AWS::AccountId}:${RestAPI}/*/GET/preferencecenter/*/users/*"
 
@@ -798,7 +795,7 @@ Resources:
     - RestAPI
     Properties:
       Action: "lambda:InvokeFunction"
-      FunctionName: !GetAtt "lambdaFunction.Arn"
+      FunctionName: !GetAtt "APIHandler.Arn"
       Principal: "apigateway.amazonaws.com"
       SourceArn: !Sub "arn:aws:execute-api:${AWS::Region}:${AWS::AccountId}:${RestAPI}/*/PUT/preferencecenter/*/users"
 
@@ -884,10 +881,10 @@ Resources:
   DeployLambdaEdgeFunction:
     Type: Custom::LoadLambda
     Properties:
-      ServiceToken: !GetAtt SolutionHelperFunction.Arn
+      ServiceToken: !GetAtt SolutionHelper.Arn
       customAction: deployEdgeFunction
       EdgeFunctionRoleARN: !GetAtt LambdaEdgeFunctionIAMRole.Arn
-      EdgeFunctionName: "preference-center-lambda-edge-function"
+      EdgeFunctionName: "SecureHeaderEdgeHandler"
 
   ReadPolicy:
     Type: 'AWS::S3::BucketPolicy'
