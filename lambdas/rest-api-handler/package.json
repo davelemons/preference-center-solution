@@ -11,7 +11,7 @@
   "license": "MIT",
   "dependencies": {
     "moment": "^2.29.4",
-    "uuid": "^8.2.0",
+    "uuid": "^14.0.0",
     "xss": "^1.0.7"
   },
   "devDependencies": {}
